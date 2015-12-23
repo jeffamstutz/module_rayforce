@@ -47,6 +47,9 @@ IF (OSPRAY_MODULE_RAYFORCE)
     rfStruct.h
   )
 
+  SET_SOURCE_FILES_PROPERTIES(rfPipeline.c
+    PROPERTIES COMPILE_FLAGS "-msse4.1 -std=gnu99")
+
   TARGET_LINK_LIBRARIES(ospray_module_rayforce${OSPRAY_LIB_SUFFIX}
     ospray${OSPRAY_LIB_SUFFIX}
     ${RAYFORCE_LIBRARIES}
