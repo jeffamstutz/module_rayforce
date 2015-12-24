@@ -111,7 +111,8 @@ static void traceRay(const RayforceGraph &graph, RTCRay &_ray)
 #endif
 
   rfRayResults rayData;
-  rayData.hit = 0;
+  rayData.hit     = 0;
+  rayData.hitDist = _ray.tfar;
 
   // Trace ray
   (*graph.rf_traceFcn)(ray, rayData);

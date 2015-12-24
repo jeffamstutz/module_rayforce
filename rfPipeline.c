@@ -52,18 +52,22 @@ RF_INLINE void rfHitFcn(rfRayResults* rayData,
                         rfRoot root,
                         float* matrix)
 {
-  rayData->hit     = 1;
-  rayData->hitDist = hitdist;
-  rayData->Ng[0]   = n[0];
-  rayData->Ng[1]   = n[1];
-  rayData->Ng[2]   = n[2];
-  rayData->u       = hituv[0];
-  rayData->v       = hituv[1];
+  //NOTE(jda) - Rayforce seems to ignore the ray's clipdist set before
+  //            intersection.
+  if (hitdist < rayData->hitDist) {
+    rayData->hit     = 1;
+    rayData->hitDist = hitdist;
+    rayData->Ng[0]   = n[0];
+    rayData->Ng[1]   = n[1];
+    rayData->Ng[2]   = n[2];
+    rayData->u       = hituv[0];
+    rayData->v       = hituv[1];
 
-  rfTriangleData *data = (rfTriangleData*)tridata;
+    rfTriangleData *data = (rfTriangleData*)tridata;
 
-  rayData->geomID  = data->geomID;
-  rayData->primID  = data->primID;
+    rayData->geomID  = data->geomID;
+    rayData->primID  = data->primID;
+  }
 }
 
 // Assemble pipeline for primary rays
