@@ -479,120 +479,84 @@ namespace ospray {
     return ospMat;
   }
 
-  void ospModelViewerMain(int &ac, const char **&av)
+  void createSingleGeometry(OSPRenderer    ospRenderer,
+                            OSPModel       ospModel,
+                            miniSG::Model *msgModel)
   {
-    msgModel = new miniSG::Model;
+    decltype(miniSG::Mesh::position) p;
+    decltype(miniSG::Mesh::triangle) t;
+    decltype(miniSG::Mesh::color   ) c;
 
-    cout << "#ospModelViewer: starting to process cmdline arguments" << endl;
-    for (int i=1;i<ac;i++) {
-      const std::string arg = av[i];
-      if (arg == "--renderer") {
-        assert(i+1 < ac);
-        rendererType = av[++i];
-      } else if (arg == "--max-objects") {
-        maxObjectsToConsider = atoi(av[++i]);
-      } else if (arg == "--spp" || arg == "-spp") {
-        spp = atoi(av[++i]);
-      } else if (arg == "--sun-dir") {
-        if (!strcmp(av[i+1],"none")) {
-          defaultDirLight_direction = vec3f(0.f);
-        } else {
-          defaultDirLight_direction.x = atof(av[++i]);
-          defaultDirLight_direction.y = atof(av[++i]);
-          defaultDirLight_direction.z = atof(av[++i]);
-        }
-      } else if (av[i][0] == '-') {
-        error("unknown commandline argument '"+arg+"'");
-      } else {
-        embree::FileName fn = arg;
-        if (fn.ext() == "stl") {
-          miniSG::importSTL(*msgModel,fn);
-        } else if (fn.ext() == "msg") {
-          miniSG::importMSG(*msgModel,fn);
-        } else if (fn.ext() == "tri") {
-          miniSG::importTRI(*msgModel,fn);
-        } else if (fn.ext() == "xml") {
-          miniSG::importRIVL(*msgModel,fn);
-        } else if (fn.ext() == "obj") {
-          miniSG::importOBJ(*msgModel,fn);
-        } else if (fn.ext() == "hbp") {
-          miniSG::importHBP(*msgModel,fn);
-        } else if (fn.ext() == "x3d") {
-          miniSG::importX3D(*msgModel,fn);
-        } else if (fn.ext() == "astl") {
-          miniSG::importSTL(msgAnimation,fn);
-        }
-      }
-    }
+    int lastPosIndex = 0;
 
-    ospLoadModule("rayforce");
+    // create ospray mesh
+    OSPGeometry ospMesh = ospNewGeometry("rfgraph");
 
-    // -------------------------------------------------------
-    // done parsing
-    // -------------------------------------------------------]
-    cout << "#ospModelViewer: done parsing. found model with" << endl;
-    cout << "  - num meshes   : " << msgModel->mesh.size() << " ";
-    size_t numUniqueTris = 0;
-    size_t numInstancedTris = 0;
-    for (size_t  i=0;i<msgModel->mesh.size();i++) {
-      if (i < 10)
-        cout << "[" << msgModel->mesh[i]->size() << "]";
-      else
-        if (i == 10) cout << "...";
-      numUniqueTris += msgModel->mesh[i]->size();
-    }
-    cout << endl;
-    cout << "  - num instances: " << msgModel->instance.size() << " ";
-    for (size_t  i=0;i<msgModel->instance.size();i++) {
-      if (i < 10)
-        cout << "[" << msgModel->mesh[msgModel->instance[i].meshID]->size()
-             << "]";
-      else
-        if (i == 10) cout << "...";
-      numInstancedTris += msgModel->mesh[msgModel->instance[i].meshID]->size();
-    }
-    cout << endl;
-    cout << "  - num unique triangles   : " << numUniqueTris << endl;
-    cout << "  - num instanced triangles: " << numInstancedTris << endl;
-
-    if (numInstancedTris == 0 && msgAnimation.empty())
-      error("no (valid) input files specified - model contains no triangles");
-
-    // -------------------------------------------------------
-    // create ospray model
-    // -------------------------------------------------------
-    ospModel = ospNewModel();
-
-    ospRenderer = ospNewRenderer(rendererType.c_str());
-    if (!ospRenderer) {
-      throw std::runtime_error("could not create ospRenderer '"
-                               + rendererType + "'");
-    }
-    Assert(ospRenderer != NULL && "could not create ospRenderer");
-    ospCommit(ospRenderer);
-
-    if (msgModel->instance.size() > maxObjectsToConsider) {
-      cout << "cutting down on the number of meshes as requested on cmdline..."
-           << endl;
-      msgModel->instance.resize(maxObjectsToConsider);
-      msgModel->mesh.resize(maxObjectsToConsider);
-    }
-
-    cout << "#ospModelViewer: adding parsed geometries to ospray model" << endl;
-    std::vector<OSPModel> instanceModels;
-
-    for (size_t i=0;i<msgModel->mesh.size();i++) {
+    for (size_t i = 0; i < msgModel->mesh.size(); i++) {
       printf("Mesh %li/%li\n",i,msgModel->mesh.size());
       Ref<miniSG::Mesh> msgMesh = msgModel->mesh[i];
-      // DBG(PRINT(msgMesh.ptr));
+
+      // check if we have to transform the vertices:
+      if (msgModel->instance[i] != miniSG::Instance(i)) {
+        for (size_t vID=0;vID<msgMesh->position.size();vID++) {
+          msgMesh->position[vID] = xfmPoint(msgModel->instance[i].xfm,
+                                            msgMesh->position[vID]);
+        }
+      }
+
+      for (auto &t : msgMesh->triangle) {
+        t.v0 += lastPosIndex;
+        t.v1 += lastPosIndex;
+        t.v2 += lastPosIndex;
+      }
+
+      lastPosIndex += msgMesh->position.size();
+
+      p.insert(p.end(), msgMesh->position.begin(), msgMesh->position.end());
+      t.insert(t.end(), msgMesh->triangle.begin(), msgMesh->triangle.end());
+      c.insert(c.end(), msgMesh->color.begin(),    msgMesh->color.end()   );
+    }
+
+    // add position array to mesh
+    OSPData position = ospNewData(p.size(), OSP_FLOAT3A, p.data());
+    ospSetData(ospMesh,"position",position);
+
+    // add triangle index array to mesh
+    OSPData index = ospNewData(t.size(), OSP_INT3, t.data());
+    assert(msgMesh->triangle.size() > 0);
+    ospSetData(ospMesh,"index",index);
+
+    // add color array to mesh
+    if (!c.empty()) {
+      OSPData color = ospNewData(c.size(), OSP_FLOAT3A, c.data());
+      assert(msgMesh->color.size() > 0);
+      ospSetData(ospMesh,"vertex.color",color);
+    }
+
+#if 0
+    // we have a single material for this mesh...
+    OSPMaterial singleMaterial = createMaterial(ospRenderer,
+                                                msgMesh->material.ptr);
+    ospSetMaterial(ospMesh,singleMaterial);
+#endif
+
+    ospCommit(ospMesh);
+    ospAddGeometry(ospModel, ospMesh);
+  }
+
+  void createMultipleGeometries(OSPRenderer    ospRenderer,
+                                OSPModel       ospModel,
+                                miniSG::Model *msgModel)
+  {
+    for (size_t i = 0; i < msgModel->mesh.size(); i++) {
+      printf("Mesh %li/%li\n",i,msgModel->mesh.size());
+      Ref<miniSG::Mesh> msgMesh = msgModel->mesh[i];
 
       // create ospray mesh
       OSPGeometry ospMesh = ospNewGeometry("rfgraph");
 
       // check if we have to transform the vertices:
       if (msgModel->instance[i] != miniSG::Instance(i)) {
-        // cout << "Transforming vertex array ..." << endl;
-        // PRINT(msgMesh->position.size());
         for (size_t vID=0;vID<msgMesh->position.size();vID++) {
           msgMesh->position[vID] = xfmPoint(msgModel->instance[i].xfm,
                                             msgMesh->position[vID]);
@@ -714,6 +678,114 @@ namespace ospray {
       ospCommit(ospMesh);
       ospAddGeometry(ospModel,ospMesh);
     }
+  }
+
+  void ospModelViewerMain(int &ac, const char **&av)
+  {
+    msgModel = new miniSG::Model;
+
+    cout << "#ospModelViewer: starting to process cmdline arguments" << endl;
+    for (int i=1;i<ac;i++) {
+      const std::string arg = av[i];
+      if (arg == "--renderer") {
+        assert(i+1 < ac);
+        rendererType = av[++i];
+      } else if (arg == "--max-objects") {
+        maxObjectsToConsider = atoi(av[++i]);
+      } else if (arg == "--spp" || arg == "-spp") {
+        spp = atoi(av[++i]);
+      } else if (arg == "--sun-dir") {
+        if (!strcmp(av[i+1],"none")) {
+          defaultDirLight_direction = vec3f(0.f);
+        } else {
+          defaultDirLight_direction.x = atof(av[++i]);
+          defaultDirLight_direction.y = atof(av[++i]);
+          defaultDirLight_direction.z = atof(av[++i]);
+        }
+      } else if (av[i][0] == '-') {
+        error("unknown commandline argument '"+arg+"'");
+      } else {
+        embree::FileName fn = arg;
+        if (fn.ext() == "stl") {
+          miniSG::importSTL(*msgModel,fn);
+        } else if (fn.ext() == "msg") {
+          miniSG::importMSG(*msgModel,fn);
+        } else if (fn.ext() == "tri") {
+          miniSG::importTRI(*msgModel,fn);
+        } else if (fn.ext() == "xml") {
+          miniSG::importRIVL(*msgModel,fn);
+        } else if (fn.ext() == "obj") {
+          miniSG::importOBJ(*msgModel,fn);
+        } else if (fn.ext() == "hbp") {
+          miniSG::importHBP(*msgModel,fn);
+        } else if (fn.ext() == "x3d") {
+          miniSG::importX3D(*msgModel,fn);
+        } else if (fn.ext() == "astl") {
+          miniSG::importSTL(msgAnimation,fn);
+        }
+      }
+    }
+
+    ospLoadModule("rayforce");
+
+    // -------------------------------------------------------
+    // done parsing
+    // -------------------------------------------------------]
+    cout << "#ospModelViewer: done parsing. found model with" << endl;
+    cout << "  - num meshes   : " << msgModel->mesh.size() << " ";
+    size_t numUniqueTris = 0;
+    size_t numInstancedTris = 0;
+    for (size_t  i=0;i<msgModel->mesh.size();i++) {
+      if (i < 10)
+        cout << "[" << msgModel->mesh[i]->size() << "]";
+      else
+        if (i == 10) cout << "...";
+      numUniqueTris += msgModel->mesh[i]->size();
+    }
+    cout << endl;
+    cout << "  - num instances: " << msgModel->instance.size() << " ";
+    for (size_t  i=0;i<msgModel->instance.size();i++) {
+      if (i < 10)
+        cout << "[" << msgModel->mesh[msgModel->instance[i].meshID]->size()
+             << "]";
+      else
+        if (i == 10) cout << "...";
+      numInstancedTris += msgModel->mesh[msgModel->instance[i].meshID]->size();
+    }
+    cout << endl;
+    cout << "  - num unique triangles   : " << numUniqueTris << endl;
+    cout << "  - num instanced triangles: " << numInstancedTris << endl;
+
+    if (numInstancedTris == 0 && msgAnimation.empty())
+      error("no (valid) input files specified - model contains no triangles");
+
+    // -------------------------------------------------------
+    // create ospray model
+    // -------------------------------------------------------
+    ospModel = ospNewModel();
+
+    ospRenderer = ospNewRenderer(rendererType.c_str());
+    if (!ospRenderer) {
+      throw std::runtime_error("could not create ospRenderer '"
+                               + rendererType + "'");
+    }
+    Assert(ospRenderer != NULL && "could not create ospRenderer");
+    ospCommit(ospRenderer);
+
+    if (msgModel->instance.size() > maxObjectsToConsider) {
+      cout << "cutting down on the number of meshes as requested on cmdline..."
+           << endl;
+      msgModel->instance.resize(maxObjectsToConsider);
+      msgModel->mesh.resize(maxObjectsToConsider);
+    }
+
+    cout << "#ospModelViewer: adding parsed geometries to ospray model" << endl;
+
+#if 0
+    createMultipleGeometries(ospRenderer, ospModel, msgModel.ptr);
+#else
+    createSingleGeometry(ospRenderer, ospModel, msgModel.ptr);
+#endif
 
     cout << "#ospModelViewer: committing model" << endl;
     ospCommit(ospModel);
