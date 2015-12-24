@@ -44,6 +44,12 @@ void getRay(const T& rays, RTCRay &ray, int i)
 
   ray.tnear  = rays.tnear[i];
   ray.tfar   = rays.tfar[i];
+
+  ray.time   = rays.time[i];
+  ray.mask   = rays.mask[i];
+
+  ray.primID = rays.primID[i];
+  ray.geomID = rays.geomID[i];
 }
 
 template<typename T>
@@ -54,9 +60,11 @@ void setRay(const RTCRay& ray, T &rays, int i)
     rays.Ngy[i] = ray.Ng[1];
     rays.Ngz[i] = ray.Ng[2];
 
-    rays.geomID[i] = ray.geomID;
     rays.primID[i] = ray.primID;
+    rays.geomID[i] = ray.geomID;
+    rays.instID[i] = ray.instID;
     rays.tfar[i]   = ray.tfar;
+    rays.tnear[i]  = ray.tnear;
     rays.u[i]      = ray.u;
     rays.v[i]      = ray.v;
   }
@@ -116,6 +124,7 @@ static void traceRay(const RayforceGraph &graph, RTCRay &_ray)
     _ray.Ng[1]  = rayData.Ng[1];
     _ray.Ng[2]  = rayData.Ng[2];
     _ray.geomID = rayData.geomID;
+    _ray.instID = rayData.geomID;
     _ray.primID = rayData.primID;
     _ray.u      = rayData.u;
     _ray.v      = rayData.v;
