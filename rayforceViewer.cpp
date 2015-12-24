@@ -606,6 +606,7 @@ namespace ospray {
                                     OSP_DATA_SHARED_BUFFER);
       ospSetData(ospMesh,"position",position);
 
+#if 0
       // add triangle index array to mesh
       if (!msgMesh->triangleMaterialId.empty()) {
         OSPData primMatID = ospNewData(msgMesh->triangleMaterialId.size(),
@@ -614,6 +615,7 @@ namespace ospray {
                                        OSP_DATA_SHARED_BUFFER);
         ospSetData(ospMesh,"prim.materialID",primMatID);
       }
+#endif
 
       // add triangle index array to mesh
       OSPData index = ospNewData(msgMesh->triangle.size(),
@@ -623,6 +625,7 @@ namespace ospray {
       assert(msgMesh->triangle.size() > 0);
       ospSetData(ospMesh,"index",index);
 
+#if 0
       // add normal array to mesh
       if (!msgMesh->normal.empty()) {
         OSPData normal = ospNewData(msgMesh->normal.size(),
@@ -634,6 +637,7 @@ namespace ospray {
       } else {
         // cout << "no vertex normals!" << endl;
       }
+#endif
 
       // add color array to mesh
       if (!msgMesh->color.empty()) {
@@ -647,6 +651,7 @@ namespace ospray {
         // cout << "no vertex colors!" << endl;
       }
 
+#if 0
       // add texcoord array to mesh
       if (!msgMesh->texcoord.empty()) {
         OSPData texcoord = ospNewData(msgMesh->texcoord.size(),
@@ -660,7 +665,6 @@ namespace ospray {
       ospSet1i(ospMesh, "alpha_type", 0);
       ospSet1i(ospMesh, "alpha_component", 4);
 
-#if 0
       // add triangle material id array to mesh
       if (msgMesh->materialList.empty()) {
         // we have a single material for this mesh...
