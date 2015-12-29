@@ -47,7 +47,6 @@ namespace ospray {
 
   /*! when using the OBJ renderer, we create a automatic dirlight with this
    *  direction; use ''--sun-dir x y z' to change */
-  //  vec3f defaultDirLight_direction(-.3, -1, .4);
   vec3f defaultDirLight_direction(.3, -1, -.2);
 
   Ref<miniSG::Model> msgModel = NULL;
@@ -56,8 +55,7 @@ namespace ospray {
   bool alwaysRedraw = true;
 
   //! the renderer we're about to use
-  std::string rendererType = "obj";
-  // std::string rendererType = "raycast_eyelight";
+  std::string rendererType = "ao1";
 
   std::vector<miniSG::Model *> msgAnimation;
 
