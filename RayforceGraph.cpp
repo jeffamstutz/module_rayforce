@@ -236,6 +236,9 @@ void RayforceGraph::finalize(Model *model)
   materialListData = getParamData("materialList");
   geom_materialID = getParam1i("geom.materialID",-1);
 
+  std::string saveGraphFile = getParamString("saveGraphFile", "");
+  std::string loadGraphFile = getParamString("loadGraphFile", "");
+
   Assert2(vertexData != NULL,
           "triangle mesh geometry does not have either 'position'"
           " or 'vertex' array");
@@ -296,43 +299,52 @@ void RayforceGraph::finalize(Model *model)
 
   eMesh = rtcNewUserGeometry(embreeSceneHandle, 1);
 
-  float *vertices = new float[numVerts*3];
-  for (uint i = 0; i < numVerts; ++i) {
-    auto *v = &vertex[numCompsInVtx*i];
-    vertices[3*i+0] = v[0];
-    vertices[3*i+1] = v[1];
-    vertices[3*i+2] = v[2];
-  }
+  if (loadGraphFile.empty()) {
+    float *vertices = new float[numVerts*3];
+    for (uint i = 0; i < numVerts; ++i) {
+      auto *v = &vertex[numCompsInVtx*i];
+      vertices[3*i+0] = v[0];
+      vertices[3*i+1] = v[1];
+      vertices[3*i+2] = v[2];
+    }
 
-  uint *indices = new uint[numTris*3];
-  for (uint i = 0; i < numTris; ++i) {
-    auto *t = &index[numCompsInTri*i];
-    indices[3*i+0] = static_cast<uint>(t[0]);
-    indices[3*i+1] = static_cast<uint>(t[1]);
-    indices[3*i+2] = static_cast<uint>(t[2]);
-  }
+    uint *indices = new uint[numTris*3];
+    for (uint i = 0; i < numTris; ++i) {
+      auto *t = &index[numCompsInTri*i];
+      indices[3*i+0] = static_cast<uint>(t[0]);
+      indices[3*i+1] = static_cast<uint>(t[1]);
+      indices[3*i+2] = static_cast<uint>(t[2]);
+    }
 
-  rfTriangleData* tridata = new rfTriangleData[numTris];
-  for (uint i = 0; i < numTris; ++i) {
-    tridata[i].geomID = eMesh;
-    tridata[i].primID = i;
-  }
+    rfTriangleData* tridata = new rfTriangleData[numTris];
+    for (uint i = 0; i < numTris; ++i) {
+      tridata[i].geomID = eMesh;
+      tridata[i].primID = i;
+    }
 
-  rf_model->setData(numTris,
-                    vertices,
-                    indices,
-                    sizeof(rfTriangleData),
-                    sizeof(rfTriangleData),
-                    tridata);
+    rf_model->setData(numTris,
+                      vertices,
+                      indices,
+                      sizeof(rfTriangleData),
+                      sizeof(rfTriangleData),
+                      tridata);
+
+    // Cleanup
+    delete [] vertices;
+    delete [] indices;
+    delete [] tridata;
+  } else {
+    rf_model->setData(loadGraphFile);
+  }
 
   rf_object->attach(*rf_model);
   rf_scene->acquire();
   rf_traceFcn = new rfut::TraceFcn<Target::System>(*rf_scene, rfRays);
 
-  // Cleanup
-  delete [] vertices;
-  delete [] indices;
-  delete [] tridata;
+  // Save graph cache
+  if (!saveGraphFile.empty() && loadGraphFile.empty()) {
+    rf_model->saveCacheFile(saveGraphFile);
+  }
 
   rtcSetUserData(embreeSceneHandle, eMesh, this);
 

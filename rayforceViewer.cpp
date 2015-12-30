@@ -54,6 +54,9 @@ namespace ospray {
   //! the renderer we're about to use
   std::string rendererType = "ao1";
 
+  std::string loadGraphFile;
+  std::string saveGraphFile;
+
   std::vector<miniSG::Model *> msgAnimation;
 
   void error(const std::string &msg)
@@ -479,6 +482,9 @@ namespace ospray {
     // create ospray mesh
     auto ospMesh = ospNewGeometry("rfgraph");
 
+    ospSetString(ospMesh, "saveGraphFile", saveGraphFile.c_str());
+    ospSetString(ospMesh, "loadGraphFile", loadGraphFile.c_str());
+
     for (size_t i = 0; i < msgModel->mesh.size(); i++) {
       printf("Mesh %li/%li\n",i,msgModel->mesh.size());
       auto msgMesh = msgModel->mesh[i];
@@ -541,6 +547,9 @@ namespace ospray {
 
       // create ospray mesh
       auto ospMesh = ospNewGeometry("rfgraph");
+
+      ospSetString(ospMesh, "saveGraphFile", saveGraphFile.c_str());
+      ospSetString(ospMesh, "loadGraphFile", loadGraphFile.c_str());
 
       // check if we have to transform the vertices:
       if (msgModel->instance[i] != miniSG::Instance(i)) {
@@ -678,6 +687,10 @@ namespace ospray {
         rendererType = av[++i];
       } else if (arg == "--max-objects") {
         maxObjectsToConsider = atoi(av[++i]);
+      } else if (arg == "--save-graph") {
+        saveGraphFile = av[++i];
+      } else if (arg == "--load-graph") {
+        loadGraphFile = av[++i];
       } else if (arg == "--spp" || arg == "-spp") {
         spp = atoi(av[++i]);
       } else if (arg == "--sun-dir") {
