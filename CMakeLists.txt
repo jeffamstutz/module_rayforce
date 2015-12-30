@@ -14,17 +14,21 @@
 ## limitations under the License.                                           ##
 ## ======================================================================== ##
 
-OPTION(OSPRAY_MODULE_RAYFORCE "Build 'RAYF' (rayforce model viewer)" ON)
+option(OSPRAY_MODULE_RAYFORCE "Build 'RAYF' (rayforce model viewer)" ON)
 
-IF (OSPRAY_MODULE_RAYFORCE)
+if (OSPRAY_MODULE_RAYFORCE)
+
+  if (NOT OSPRAY_APPS_MODELVIEWER)
+    message(FATAL_ERROR "You must enable OSPRAY_APPS_MODELVIEWER to build the Rayforce module!")
+  endif()
 
   find_package(Rayforce REQUIRED)
 
-  CONFIGURE_OSPRAY()
+  configure_ospray()
 
   # -------------------------------------------------------
 
-  INCLUDE_DIRECTORIES(
+  include_directories(
     ${PROJECT_SOURCE_DIR}/ospray
     ${PROJECT_SOURCE_DIR}/ospray/geometry
     ${PROJECT_SOURCE_DIR}/ospray/include
@@ -32,14 +36,14 @@ IF (OSPRAY_MODULE_RAYFORCE)
     ${RAYFORCE_INCLUDE_DIR}
   )
 
-  INCLUDE_DIRECTORIES_ISPC(
+  include_directories_ispc(
     ${PROJECT_SOURCE_DIR}/ospray
     ${PROJECT_SOURCE_DIR}/ospray/geometry
     ${PROJECT_SOURCE_DIR}/ospray/include
     ${CMAKE_CURRENT_SOURCE_DIR}
   )
 
-  OSPRAY_ADD_LIBRARY(ospray_module_rayforce${OSPRAY_LIB_SUFFIX} SHARED
+  ospray_add_library(ospray_module_rayforce${OSPRAY_LIB_SUFFIX} SHARED
     RayforceGraph.cpp
     RayforceGraph.h
     RayforceGraph.ispc
@@ -47,29 +51,29 @@ IF (OSPRAY_MODULE_RAYFORCE)
     rfStruct.h
   )
 
-  SET_SOURCE_FILES_PROPERTIES(rfPipeline.c
+  set_source_files_properties(rfPipeline.c
     PROPERTIES COMPILE_FLAGS "-msse4.1 -std=gnu99")
 
-  TARGET_LINK_LIBRARIES(ospray_module_rayforce${OSPRAY_LIB_SUFFIX}
+  target_link_libraries(ospray_module_rayforce${OSPRAY_LIB_SUFFIX}
     ospray${OSPRAY_LIB_SUFFIX}
     ${RAYFORCE_LIBRARIES}
   )
 
-  IF (NOT THIS_IS_MIC)
-    INCLUDE_DIRECTORIES(
+  if (NOT THIS_IS_MIC)
+    include_directories(
       ${PROJECT_SOURCE_DIR}/apps/modelViewer
     )
 
-    ADD_EXECUTABLE(ospRayforceViewer
+    add_executable(ospRayforceViewer
       rayforceViewer.cpp
     )
 
-    TARGET_LINK_LIBRARIES(ospRayforceViewer
+    target_link_libraries(ospRayforceViewer
       ospray
       ospray_minisg
       ospray_glut3d
       ${OPENGL_LIBRARIES}
       ${GLUT_LIBRARIES}
     )
-  ENDIF()
-ENDIF()
+  endif()
+endif()
