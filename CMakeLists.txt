@@ -60,11 +60,11 @@ IF (OSPRAY_MODULE_RAYFORCE)
       ${PROJECT_SOURCE_DIR}/apps/modelViewer
     )
 
-    ADD_EXECUTABLE(ospRayforce
+    ADD_EXECUTABLE(ospRayforceViewer
       rayforceViewer.cpp
     )
 
-    TARGET_LINK_LIBRARIES(ospRayforce
+    TARGET_LINK_LIBRARIES(ospRayforceViewer
       ospray
       ospray_minisg
       ospray_glut3d

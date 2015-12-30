@@ -1,4 +1,4 @@
-// ======================================================================== //
+﻿// ======================================================================== //
 // Copyright 2009-2015 Intel Corporation                                    //
 //                                                                          //
 // Licensed under the Apache License, Version 2.0 (the "License");          //
@@ -21,16 +21,13 @@
 // ospray, for rendering
 #include "ospray/ospray.h"
 
-// stl
-#include <algorithm>
-
 namespace ospray {
   using std::cout;
   using std::endl;
   bool doShadows = 1;
 
   float g_near_clip = 1e-6f;
-  bool  g_fullScreen       = false;
+  bool  g_fullScreen = false;
   glut3D::Glut3DWidget::ViewPort g_viewPort;
 
   vec2i g_windowSize;
@@ -61,11 +58,10 @@ namespace ospray {
 
   void error(const std::string &msg)
   {
-    cout << "#ospModelViewer fatal error : " << msg << endl;
+    cout << "#ospRayforceViewer fatal error : " << msg << endl;
     cout << endl;
     cout << "Proper usage: " << endl;
-    cout << "  ./ospModelViewer [-bench <warmpup>x<numFrames>] [-model] "
-         << "<inFileName>" << endl;
+    cout << "  ./ospRayforceViewer [options] <inFileName>" << endl;
     cout << endl;
     exit(1);
   }
@@ -77,7 +73,7 @@ namespace ospray {
       const int sizeX, const int sizeY,
       const uint32 *pixel)
   {
-    FILE *file = fopen(fileName, "wb");
+    auto *file = fopen(fileName, "wb");
     fprintf(file, "P6\n%i %i\n255\n", sizeX, sizeY);
     unsigned char *out = (unsigned char *)alloca(3*sizeX);
     for (int y = 0; y < sizeY; y++) {
@@ -172,7 +168,7 @@ namespace ospray {
         forceRedraw();
         break;
       case '!': {
-        const uint32 * p = (uint32*)ospMapFrameBuffer(fb, OSP_FB_COLOR);
+        const auto *p = (uint32*)ospMapFrameBuffer(fb, OSP_FB_COLOR);
         writePPM("ospmodelviewer.ppm", g_windowSize.x, g_windowSize.y, p);
         // ospUnmapFrameBuffer(fb,p);
         printf("#ospModelViewer: saved current frame to "
@@ -180,7 +176,7 @@ namespace ospray {
       } break;
       case 'X':
         if (viewPort.up == vec3f(1,0,0) || viewPort.up == vec3f(-1.f,0,0))
-          viewPort.up = - viewPort.up;
+          viewPort.up = -viewPort.up;
         else
           viewPort.up = vec3f(1,0,0);
         viewPort.modified = true;
@@ -188,7 +184,7 @@ namespace ospray {
         break;
       case 'Y':
         if (viewPort.up == vec3f(0,1,0) || viewPort.up == vec3f(0,-1.f,0))
-          viewPort.up = - viewPort.up;
+          viewPort.up = -viewPort.up;
         else
           viewPort.up = vec3f(0,1,0);
         viewPort.modified = true;
@@ -196,7 +192,7 @@ namespace ospray {
         break;
       case 'Z':
         if (viewPort.up == vec3f(0,0,1) || viewPort.up == vec3f(0,0,-1.f))
-          viewPort.up = - viewPort.up;
+          viewPort.up = -viewPort.up;
         else
           viewPort.up = vec3f(0,0,1);
         viewPort.modified = true;
@@ -233,7 +229,7 @@ namespace ospray {
         ospSet1f(camera, "near_clip", g_near_clip);
         ospCommit(camera);
         accumID=0;
-        ospFrameBufferClear(fb,OSP_FB_ACCUM);
+        ospFrameBufferClear(fb, OSP_FB_ACCUM);
         forceRedraw();
         break;
       case GLUT_KEY_HOME:
@@ -244,7 +240,7 @@ namespace ospray {
         PRINT(maxDepth);
         ospCommit(ospRenderer);
         accumID=0;
-        ospFrameBufferClear(fb,OSP_FB_ACCUM);
+        ospFrameBufferClear(fb, OSP_FB_ACCUM);
         forceRedraw();
         break;
       default:
@@ -298,7 +294,7 @@ namespace ospray {
         }
         Assert2(camera,"ospray camera is null");
         ospSetVec3f(camera,"pos",(osp::vec3f&)viewPort.from);
-        vec3f dir = viewPort.at-viewPort.from;
+        auto dir = viewPort.at-viewPort.from;
         ospSetVec3f(camera,"dir",(osp::vec3f&)dir);
         ospSetVec3f(camera,"up",(osp::vec3f&)viewPort.up);
         ospSetf(camera,"aspect",viewPort.aspect);
@@ -321,18 +317,13 @@ namespace ospray {
       // that pointer is no longer valid, so set it to null
       ucharFB = NULL;
 
-      char title[1000];
-
       if (alwaysRedraw) {
-        sprintf(title,"OSPRay Model Viewer (%f fps)",
-                fps.getFPS());
+        std::string title;
+        title = "OSPRay Model Viewer ("+std::to_string(fps.getFPS())+" fps)";
         setTitle(title);
         forceRedraw();
       } else if (accumID < maxAccum) {
         forceRedraw();
-      } else {
-        // sprintf(title,"OSPRay Model Viewer");
-        // setTitle(title);
       }
     }
 
@@ -379,12 +370,13 @@ namespace ospray {
     }
 
     static std::map<miniSG::Texture2D*, OSPTexture2D> alreadyCreatedTextures;
-    if (alreadyCreatedTextures.find(msgTex) != alreadyCreatedTextures.end())
+    if (alreadyCreatedTextures.find(msgTex) != alreadyCreatedTextures.end()) {
       return alreadyCreatedTextures[msgTex];
+    }
 
     //TODO: We need to come up with a better way to handle different possible
     //      pixel layouts
-    OSPDataType type = OSP_VOID_PTR;
+    auto type = OSP_VOID_PTR;
 
     if (msgTex->depth == 1) {
       if( msgTex->channels == 3 ) type = OSP_UCHAR3;
@@ -394,11 +386,10 @@ namespace ospray {
       if( msgTex->channels == 4 ) type = OSP_FLOAT3A;
     }
 
-    OSPTexture2D ospTex = ospNewTexture2D( msgTex->width,
-                                           msgTex->height,
-                                           type,
-                                           msgTex->data,
-                                           0);
+    auto ospTex = ospNewTexture2D(msgTex->width,
+                                  msgTex->height,
+                                  type,
+                                  msgTex->data);
 
     alreadyCreatedTextures[msgTex] = ospTex;
 
@@ -423,25 +414,23 @@ namespace ospray {
 
     const char *type = mat->getParam("type","OBJMaterial");
     assert(type);
-    OSPMaterial ospMat = alreadyCreatedMaterials[mat] = ospNewMaterial(renderer,
-                                                                       type);
+    auto ospMat = alreadyCreatedMaterials[mat] = ospNewMaterial(renderer, type);
     if (!ospMat)  {
       warnMaterial(type);
       return createDefaultMaterial(renderer);
     }
     const bool isOBJMaterial = !strcmp(type, "OBJMaterial");
 
-    for (miniSG::Material::ParamMap::const_iterator it =  mat->params.begin();
-         it !=  mat->params.end(); ++it) {
+    for (auto it =  mat->params.begin(); it !=  mat->params.end(); ++it) {
       const char *name = it->first.c_str();
-      const miniSG::Material::Param *p = it->second.ptr;
+      const auto *p = it->second.ptr;
 
       switch(p->type) {
       case miniSG::Material::Param::INT:
         ospSet1i(ospMat,name,p->i[0]);
         break;
       case miniSG::Material::Param::FLOAT: {
-        float f = p->f[0];
+        auto f = p->f[0];
         /* many mtl materials of obj models wrongly store the phong exponent
            'Ns' in range [0..1], whereas OSPRay's material implementations
            correctly interpret it to be in [0..inf), thus we map ranges here */
@@ -459,9 +448,9 @@ namespace ospray {
         break;
       case miniSG::Material::Param::TEXTURE:
         {
-          miniSG::Texture2D *tex = (miniSG::Texture2D*)p->ptr;
+          auto *tex = (miniSG::Texture2D*)p->ptr;
           if (tex) {
-            OSPTexture2D ospTex = createTexture2D(tex);
+            auto ospTex = createTexture2D(tex);
             assert(ospTex);
             ospCommit(ospTex);
             ospSetObject(ospMat, name, ospTex);
@@ -488,11 +477,11 @@ namespace ospray {
     int lastPosIndex = 0;
 
     // create ospray mesh
-    OSPGeometry ospMesh = ospNewGeometry("rfgraph");
+    auto ospMesh = ospNewGeometry("rfgraph");
 
     for (size_t i = 0; i < msgModel->mesh.size(); i++) {
       printf("Mesh %li/%li\n",i,msgModel->mesh.size());
-      Ref<miniSG::Mesh> msgMesh = msgModel->mesh[i];
+      auto msgMesh = msgModel->mesh[i];
 
       // check if we have to transform the vertices:
       if (msgModel->instance[i] != miniSG::Instance(i)) {
@@ -516,17 +505,17 @@ namespace ospray {
     }
 
     // add position array to mesh
-    OSPData position = ospNewData(p.size(), OSP_FLOAT3A, p.data());
+    auto position = ospNewData(p.size(), OSP_FLOAT3A, p.data());
     ospSetData(ospMesh,"position",position);
 
     // add triangle index array to mesh
-    OSPData index = ospNewData(t.size(), OSP_INT3, t.data());
+    auto index = ospNewData(t.size(), OSP_INT3, t.data());
     assert(msgMesh->triangle.size() > 0);
     ospSetData(ospMesh,"index",index);
 
     // add color array to mesh
     if (!c.empty()) {
-      OSPData color = ospNewData(c.size(), OSP_FLOAT3A, c.data());
+      auto color = ospNewData(c.size(), OSP_FLOAT3A, c.data());
       assert(msgMesh->color.size() > 0);
       ospSetData(ospMesh,"vertex.color",color);
     }
@@ -548,10 +537,10 @@ namespace ospray {
   {
     for (size_t i = 0; i < msgModel->mesh.size(); i++) {
       printf("Mesh %li/%li\n",i,msgModel->mesh.size());
-      Ref<miniSG::Mesh> msgMesh = msgModel->mesh[i];
+      auto msgMesh = msgModel->mesh[i];
 
       // create ospray mesh
-      OSPGeometry ospMesh = ospNewGeometry("rfgraph");
+      auto ospMesh = ospNewGeometry("rfgraph");
 
       // check if we have to transform the vertices:
       if (msgModel->instance[i] != miniSG::Instance(i)) {
@@ -562,10 +551,10 @@ namespace ospray {
       }
 
       // add position array to mesh
-      OSPData position = ospNewData(msgMesh->position.size(),
-                                    OSP_FLOAT3A,
-                                    &msgMesh->position[0],
-                                    OSP_DATA_SHARED_BUFFER);
+      auto position = ospNewData(msgMesh->position.size(),
+                                 OSP_FLOAT3A,
+                                 &msgMesh->position[0],
+                                 OSP_DATA_SHARED_BUFFER);
       ospSetData(ospMesh,"position",position);
 
 #if 0
@@ -580,10 +569,10 @@ namespace ospray {
 #endif
 
       // add triangle index array to mesh
-      OSPData index = ospNewData(msgMesh->triangle.size(),
-                                 OSP_INT3,
-                                 &msgMesh->triangle[0],
-                                 OSP_DATA_SHARED_BUFFER);
+      auto index = ospNewData(msgMesh->triangle.size(),
+                              OSP_INT3,
+                              &msgMesh->triangle[0],
+                              OSP_DATA_SHARED_BUFFER);
       assert(msgMesh->triangle.size() > 0);
       ospSetData(ospMesh,"index",index);
 
@@ -603,10 +592,10 @@ namespace ospray {
 
       // add color array to mesh
       if (!msgMesh->color.empty()) {
-        OSPData color = ospNewData(msgMesh->color.size(),
-                                   OSP_FLOAT3A,
-                                   &msgMesh->color[0],
-                                   OSP_DATA_SHARED_BUFFER);
+        auto color = ospNewData(msgMesh->color.size(),
+                                OSP_FLOAT3A,
+                                &msgMesh->color[0],
+                                OSP_DATA_SHARED_BUFFER);
         assert(msgMesh->color.size() > 0);
         ospSetData(ospMesh,"vertex.color",color);
       } else {
@@ -668,13 +657,12 @@ namespace ospray {
       }
 #else
       // we have a single material for this mesh...
-      OSPMaterial singleMaterial = createMaterial(ospRenderer,
-                                                  msgMesh->material.ptr);
-      ospSetMaterial(ospMesh,singleMaterial);
+      auto singleMaterial = createMaterial(ospRenderer, msgMesh->material.ptr);
+      ospSetMaterial(ospMesh, singleMaterial);
 #endif
 
       ospCommit(ospMesh);
-      ospAddGeometry(ospModel,ospMesh);
+      ospAddGeometry(ospModel, ospMesh);
     }
   }
 
@@ -795,7 +783,7 @@ namespace ospray {
     if (defaultDirLight_direction != vec3f(0.f)) {
       cout << "#ospModelViewer: Adding a hard coded directional light as the"
            << "sun." << endl;
-      OSPLight ospLight = ospNewLight(ospRenderer, "DirectionalLight");
+      auto ospLight = ospNewLight(ospRenderer, "DirectionalLight");
       ospSetString(ospLight, "name", "sun" );
       ospSet3f(ospLight, "color", 1, 1, 1);
       ospSet3fv(ospLight, "direction", &defaultDirLight_direction.x);
@@ -804,7 +792,7 @@ namespace ospray {
       lights.push_back(ospLight);
     }
 
-    OSPData lightArray = ospNewData(lights.size(), OSP_OBJECT, &lights[0], 0);
+    auto lightArray = ospNewData(lights.size(), OSP_OBJECT, &lights[0], 0);
     ospSetData(ospRenderer, "lights", lightArray);
     //end light test
     ospCommit(ospRenderer);
