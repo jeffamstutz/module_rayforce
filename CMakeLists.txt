@@ -19,7 +19,7 @@ option(OSPRAY_MODULE_RAYFORCE "Build 'RAYF' (rayforce model viewer)" ON)
 if (OSPRAY_MODULE_RAYFORCE)
 
   if (NOT OSPRAY_APPS_MODELVIEWER)
-    message(FATAL_ERROR "You must enable OSPRAY_APPS_MODELVIEWER to build the Rayforce module!")
+    message(WARNING "You must enable OSPRAY_APPS_MODELVIEWER to build the Rayforce module!")
   endif()
 
   find_package(Rayforce REQUIRED)
