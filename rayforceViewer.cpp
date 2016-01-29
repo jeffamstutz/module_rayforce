@@ -516,13 +516,13 @@ namespace ospray {
 
     // add triangle index array to mesh
     auto index = ospNewData(t.size(), OSP_INT3, t.data());
-    assert(msgMesh->triangle.size() > 0);
+    assert(t.size() > 0);
     ospSetData(ospMesh,"index",index);
 
     // add color array to mesh
     if (!c.empty()) {
       auto color = ospNewData(c.size(), OSP_FLOAT3A, c.data());
-      assert(msgMesh->color.size() > 0);
+      assert(c.size() > 0);
       ospSetData(ospMesh,"vertex.color",color);
     }
 
