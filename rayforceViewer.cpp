@@ -367,36 +367,39 @@ namespace ospray {
     if(msgTex == NULL) {
       static int numWarnings = 0;
       if (++numWarnings < 10)
-        cout << "WARNING: material does not have Textures (only warning for "
-             << "the first 10 times)!" << endl;
+        cout << "WARNING: material does not have Textures (only warning for the first 10 times)!" << endl;
       return NULL;
     }
 
     static std::map<miniSG::Texture2D*, OSPTexture2D> alreadyCreatedTextures;
-    if (alreadyCreatedTextures.find(msgTex) != alreadyCreatedTextures.end()) {
+    if (alreadyCreatedTextures.find(msgTex) != alreadyCreatedTextures.end())
       return alreadyCreatedTextures[msgTex];
-    }
 
-    //TODO: We need to come up with a better way to handle different possible
-    //      pixel layouts
-    auto type = OSP_VOID_PTR;
+    //TODO: We need to come up with a better way to handle different possible pixel layouts
+    OSPTextureFormat type = OSP_TEXTURE_R8;
 
     if (msgTex->depth == 1) {
-      if( msgTex->channels == 3 ) type = OSP_UCHAR3;
-      if( msgTex->channels == 4 ) type = OSP_UCHAR4;
+      if( msgTex->channels == 1 ) type = OSP_TEXTURE_R8;
+      if( msgTex->channels == 3 )
+        type = msgTex->prefereLinear ? OSP_TEXTURE_RGB8 : OSP_TEXTURE_SRGB;
+      if( msgTex->channels == 4 )
+        type = msgTex->prefereLinear ? OSP_TEXTURE_RGBA8 : OSP_TEXTURE_SRGBA;
     } else if (msgTex->depth == 4) {
-      if( msgTex->channels == 3 ) type = OSP_FLOAT3;
-      if( msgTex->channels == 4 ) type = OSP_FLOAT3A;
+      if( msgTex->channels == 1 ) type = OSP_TEXTURE_R32F;
+      if( msgTex->channels == 3 ) type = OSP_TEXTURE_RGB32F;
+      if( msgTex->channels == 4 ) type = OSP_TEXTURE_RGBA32F;
     }
 
-    auto ospTex = ospNewTexture2D(msgTex->width,
-                                  msgTex->height,
-                                  type,
-                                  msgTex->data);
+    vec2i texSize(msgTex->width, msgTex->height);
+    OSPTexture2D ospTex = ospNewTexture2D((osp::vec2i&)texSize,
+                                          type,
+                                          msgTex->data,
+                                          0);
 
     alreadyCreatedTextures[msgTex] = ospTex;
 
     ospCommit(ospTex);
+
     return ospTex;
   }
 
