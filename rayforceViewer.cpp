@@ -22,6 +22,8 @@
 #include "ospray/ospray.h"
 
 namespace ospray {
+  using namespace ospcommon;
+
   using std::cout;
   using std::endl;
   bool doShadows = 1;
@@ -36,7 +38,7 @@ namespace ospray {
   int maxAccum = 64;
   int spp = 1; /*! number of samples per pixel */
   int maxDepth = 2; // only set with home/end
-  unsigned int maxObjectsToConsider = (uint32)-1;
+  unsigned int maxObjectsToConsider = (uint32_t)-1;
   /*! if turned on we're showing the depth buffer rather than the (accum'ed)
    *  color buffer */
   bool showDepthBuffer = 0;
@@ -74,7 +76,7 @@ namespace ospray {
   // helper function to write the rendered image as PPM file
   void writePPM(const char *fileName,
       const int sizeX, const int sizeY,
-      const uint32 *pixel)
+      const uint32_t *pixel)
   {
     auto *file = fopen(fileName, "wb");
     fprintf(file, "P6\n%i %i\n255\n", sizeX, sizeY);
@@ -129,9 +131,9 @@ namespace ospray {
       ospCommit(camera);
       ospCommit(renderer);
 
-    };
+    }
 
-    virtual void reshape(const ospray::vec2i &newSize)
+    void reshape(const ospray::vec2i &newSize) override
     {
       Glut3DWidget::reshape(newSize);
       g_windowSize = newSize;
@@ -149,7 +151,7 @@ namespace ospray {
       forceRedraw();
     }
 
-    virtual void keypress(char key, const vec2f where)
+    void keypress(char key, const vec2i &where) override
     {
       switch (key) {
       case 'R':
@@ -171,7 +173,7 @@ namespace ospray {
         forceRedraw();
         break;
       case '!': {
-        const auto *p = (uint32*)ospMapFrameBuffer(fb, OSP_FB_COLOR);
+        const auto *p = (uint32_t*)ospMapFrameBuffer(fb, OSP_FB_COLOR);
         writePPM("ospmodelviewer.ppm", g_windowSize.x, g_windowSize.y, p);
         // ospUnmapFrameBuffer(fb,p);
         printf("#ospModelViewer: saved current frame to "
@@ -221,7 +223,7 @@ namespace ospray {
       }
     }
 
-    virtual void specialkey(int32 key, const vec2f where)
+    void specialkey(int32_t key, const vec2i &where) override
     {
       switch(key) {
       case GLUT_KEY_PAGE_UP:
@@ -251,7 +253,7 @@ namespace ospray {
       }
     }
 
-    virtual void mouseButton(int32 whichButton, bool released, const vec2i &pos)
+    void mouseButton(int32_t whichButton, bool released, const vec2i &pos) override
     {
       Glut3DWidget::mouseButton(whichButton, released, pos);
       if(currButtonState ==  (1<<GLUT_LEFT_BUTTON) &&
@@ -270,7 +272,7 @@ namespace ospray {
       }
     }
 
-    virtual void display()
+    void display() override
     {
       if (!fb || !renderer) return;
 
@@ -312,7 +314,7 @@ namespace ospray {
 
       // set the glut3d widget's frame buffer to the opsray frame buffer, then
       // display
-      ucharFB = (uint32 *) ospMapFrameBuffer(fb, OSP_FB_COLOR);
+      ucharFB = (uint32_t *) ospMapFrameBuffer(fb, OSP_FB_COLOR);
       frameBufferMode = Glut3DWidget::FRAMEBUFFER_UCHAR;
 
       Glut3DWidget::display();
@@ -375,7 +377,8 @@ namespace ospray {
     if (alreadyCreatedTextures.find(msgTex) != alreadyCreatedTextures.end())
       return alreadyCreatedTextures[msgTex];
 
-    //TODO: We need to come up with a better way to handle different possible pixel layouts
+    //TODO: We need to come up with a better way to handle different possible
+    //      pixel layouts
     OSPTextureFormat type = OSP_TEXTURE_R8;
 
     if (msgTex->depth == 1) {
@@ -707,7 +710,7 @@ namespace ospray {
       } else if (av[i][0] == '-') {
         error("unknown commandline argument '"+arg+"'");
       } else {
-        embree::FileName fn = arg;
+        FileName fn = arg;
         if (fn.ext() == "stl") {
           miniSG::importSTL(*msgModel,fn);
         } else if (fn.ext() == "msg") {

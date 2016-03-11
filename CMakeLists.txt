@@ -16,15 +16,11 @@
 
 option(OSPRAY_MODULE_RAYFORCE "Build 'RAYF' (rayforce model viewer)" ON)
 
-if (OSPRAY_MODULE_RAYFORCE)
+configure_ospray()
 
-  if (NOT OSPRAY_APPS_MODELVIEWER)
-    message(WARNING "You must enable OSPRAY_APPS_MODELVIEWER to build the Rayforce module!")
-  endif()
+if (OSPRAY_MODULE_RAYFORCE AND NOT THIS_IS_MIC)
 
   find_package(Rayforce REQUIRED)
-
-  configure_ospray()
 
   # -------------------------------------------------------
 
@@ -34,6 +30,7 @@ if (OSPRAY_MODULE_RAYFORCE)
     ${PROJECT_SOURCE_DIR}/ospray/include
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${RAYFORCE_INCLUDE_DIR}
+    ${EMBREE_INCLUDE_DIRS}
   )
 
   include_directories_ispc(
@@ -41,9 +38,10 @@ if (OSPRAY_MODULE_RAYFORCE)
     ${PROJECT_SOURCE_DIR}/ospray/geometry
     ${PROJECT_SOURCE_DIR}/ospray/include
     ${CMAKE_CURRENT_SOURCE_DIR}
+    ${EMBREE_INCLUDE_DIRS}
   )
 
-  ospray_add_library(ospray_module_rayforce${OSPRAY_LIB_SUFFIX} SHARED
+  ospray_add_library(ospray_module_rayforce SHARED
     RayforceGraph.cpp
     RayforceGraph.h
     RayforceGraph.ispc
@@ -54,8 +52,8 @@ if (OSPRAY_MODULE_RAYFORCE)
   set_source_files_properties(rfPipeline.c
     PROPERTIES COMPILE_FLAGS "-msse4.1 -std=gnu99")
 
-  target_link_libraries(ospray_module_rayforce${OSPRAY_LIB_SUFFIX}
-    ospray${OSPRAY_LIB_SUFFIX}
+  ospray_library_link_libraries(ospray_module_rayforce
+    ospray
     ${RAYFORCE_LIBRARIES}
   )
 

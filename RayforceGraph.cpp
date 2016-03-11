@@ -384,7 +384,7 @@ void RayforceGraph::finalize(Model *model)
                            eMesh,
                            (RTCOccludedFunc16)&rayforceIntersectFunc16);
 
-  bounds = embree::empty;
+  bounds = empty;
 
   for (int i = 0; i < numVerts * numCompsInVtx; i += numCompsInVtx) {
     bounds.extend(*(vec3f*)(vertex + i));
