@@ -20,46 +20,33 @@ if (OSPRAY_MODULE_RAYFORCE AND NOT THIS_IS_MIC)
 
   find_package(Rayforce REQUIRED)
 
-  # -------------------------------------------------------
-
-  include_directories(
-    ${RAYFORCE_INCLUDE_DIR}
-  )
+  include_directories(${RAYFORCE_INCLUDE_DIR})
 
   include_directories_ispc(${CMAKE_CURRENT_SOURCE_DIR})
 
-  ospray_add_library(ospray_module_rayforce SHARED
+  ospray_create_library(module_rayforce
     RayforceGraph.cpp
     RayforceGraph.h
     RayforceGraph.ispc
     rfPipeline.c
     rfStruct.h
+    LINK
+    ospray
+    ${RAYFORCE_LIBRARIES}
   )
 
   set_source_files_properties(rfPipeline.c
     PROPERTIES COMPILE_FLAGS "-msse4.1 -std=gnu99")
 
-  ospray_library_link_libraries(ospray_module_rayforce
+  ospray_create_application(RayforceViewer
+    rayforceViewer.cpp
+    LINK
     ospray
-    ${RAYFORCE_LIBRARIES}
+    ospray_commandline
+    ospray_minisg
+    ospray_glut3d
+    ${OPENGL_LIBRARIES}
+    ${GLUT_LIBRARIES}
   )
 
-  if (NOT THIS_IS_MIC)
-    include_directories(
-      ${PROJECT_SOURCE_DIR}/apps/modelViewer
-    )
-
-    add_executable(ospRayforceViewer
-      rayforceViewer.cpp
-    )
-
-    target_link_libraries(ospRayforceViewer
-      ospray
-      ospray_commandline
-      ospray_minisg
-      ospray_glut3d
-      ${OPENGL_LIBRARIES}
-      ${GLUT_LIBRARIES}
-    )
-  endif()
 endif()
