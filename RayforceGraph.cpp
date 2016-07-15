@@ -31,45 +31,6 @@ extern rfPipeline rfRays;
 
 namespace ospray {
 
-template<typename T>
-void getRay(const T& rays, RTCRay &ray, int i)
-{
-  ray.org[0] = rays.orgx[i];
-  ray.org[1] = rays.orgy[i];
-  ray.org[2] = rays.orgz[i];
-
-  ray.dir[0] = rays.dirx[i];
-  ray.dir[1] = rays.diry[i];
-  ray.dir[2] = rays.dirz[i];
-
-  ray.tnear  = rays.tnear[i];
-  ray.tfar   = rays.tfar[i];
-
-  ray.time   = rays.time[i];
-  ray.mask   = rays.mask[i];
-
-  ray.primID = rays.primID[i];
-  ray.geomID = rays.geomID[i];
-  ray.instID = rays.instID[i];
-}
-
-template<typename T>
-void setRay(const RTCRay& ray, T &rays, int i)
-{
-  if (ray.geomID != RTC_INVALID_GEOMETRY_ID) {
-    rays.Ngx[i] = ray.Ng[0];
-    rays.Ngy[i] = ray.Ng[1];
-    rays.Ngz[i] = ray.Ng[2];
-
-    rays.primID[i] = ray.primID;
-    rays.geomID[i] = ray.geomID;
-    rays.instID[i] = ray.instID;
-    rays.tfar[i]   = ray.tfar;
-    rays.u[i]      = ray.u;
-    rays.v[i]      = ray.v;
-  }
-}
-
 static void rayforceBoundsFunc(const RayforceGraph* graphs,
                                size_t               item,
                                RTCBounds*           bounds_o)
@@ -132,66 +93,12 @@ static void traceRay(const RayforceGraph &graph, RTCRay &_ray)
   }
 }
 
-static void rayforceIntersectFunc(const RayforceGraph* graphs,
-                                  RTCRay&              ray,
-                                  size_t               item)
+extern "C" void rayforceIntersectFunc(void *_self, void *_ray)
 {
-  const RayforceGraph& graph = graphs[item];
+  auto &graph = *(RayforceGraph*)_self;
+  auto &ray = *(RTCRay*)_ray;
+
   traceRay(graph, ray);
-}
-
-static void rayforceIntersectFunc4(const void*          _mask,
-                                   const RayforceGraph* graphs,
-                                   RTCRay4&             rays,
-                                   size_t               item)
-{
-  const RayforceGraph& graph = graphs[item];
-  const int *mask = (int*)_mask;
-
-  for (int i = 0; i < 4; ++i) {
-    if (mask[i]) {
-      RTCRay ray;
-      getRay(rays, ray, i);
-      traceRay(graph, ray);
-      setRay(ray, rays, i);
-    }
-  }
-}
-
-static void rayforceIntersectFunc8(const void*          _mask,
-                                   const RayforceGraph* graphs,
-                                   RTCRay8&             rays,
-                                   size_t               item)
-{
-  const RayforceGraph& graph = graphs[item];
-  const int *mask = (int*)_mask;
-
-  for (int i = 0; i < 8; ++i) {
-    if (mask[i]) {
-      RTCRay ray;
-      getRay(rays, ray, i);
-      traceRay(graph, ray);
-      setRay(ray, rays, i);
-    }
-  }
-}
-
-static void rayforceIntersectFunc16(const void*          _mask,
-                                    const RayforceGraph* graphs,
-                                    RTCRay16&            rays,
-                                    size_t               item)
-{
-  const RayforceGraph& graph = graphs[item];
-  const int *mask = (int*)_mask;
-
-  for (int i = 0; i < 16; ++i) {
-    if (mask[i]) {
-      RTCRay ray;
-      getRay(rays, ray, i);
-      traceRay(graph, ray);
-      setRay(ray, rays, i);
-    }
-  }
 }
 
 RayforceGraph::RayforceGraph()
@@ -204,7 +111,8 @@ RayforceGraph::RayforceGraph()
   rf_device  = new rfut::Device<Target::System>(*rf_context);
   rf_scene   = new rfut::Scene<Target::System>(*rf_context, *rf_device);
   rf_object  = new rfut::Object(*rf_scene, CullMode::None);
-  rf_model   = new rfut::Model(*rf_scene, ModelType::Triangles, 224, 224);
+  //rf_model   = new rfut::Model(*rf_scene, ModelType::Triangles, 224, 224);
+  rf_model   = new rfut::Model(*rf_scene, ModelType::Triangles, 64, 64);
 }
 
 RayforceGraph::~RayforceGraph()
@@ -345,44 +253,6 @@ void RayforceGraph::finalize(Model *model)
   if (!saveGraphFile.empty() && loadGraphFile.empty()) {
     rf_model->saveCacheFile(saveGraphFile);
   }
-
-  rtcSetUserData(embreeSceneHandle, eMesh, this);
-
-  rtcSetBoundsFunction(embreeSceneHandle,
-                       eMesh,
-                       (RTCBoundsFunc)&rayforceBoundsFunc);
-
-  rtcSetIntersectFunction(embreeSceneHandle,
-                          eMesh,
-                          (RTCIntersectFunc)&rayforceIntersectFunc);
-
-  rtcSetIntersectFunction4(embreeSceneHandle,
-                           eMesh,
-                           (RTCIntersectFunc4)&rayforceIntersectFunc4);
-
-  rtcSetIntersectFunction8(embreeSceneHandle,
-                           eMesh,
-                           (RTCIntersectFunc8)&rayforceIntersectFunc8);
-
-  rtcSetIntersectFunction16(embreeSceneHandle,
-                            eMesh,
-                            (RTCIntersectFunc16)&rayforceIntersectFunc16);
-
-  rtcSetOccludedFunction(embreeSceneHandle,
-                         eMesh,
-                         (RTCOccludedFunc)&rayforceIntersectFunc);
-
-  rtcSetOccludedFunction4(embreeSceneHandle,
-                          eMesh,
-                          (RTCOccludedFunc4)&rayforceIntersectFunc4);
-
-  rtcSetOccludedFunction8(embreeSceneHandle,
-                          eMesh,
-                          (RTCOccludedFunc8)&rayforceIntersectFunc8);
-
-  rtcSetOccludedFunction16(embreeSceneHandle,
-                           eMesh,
-                           (RTCOccludedFunc16)&rayforceIntersectFunc16);
 
   bounds = empty;
 

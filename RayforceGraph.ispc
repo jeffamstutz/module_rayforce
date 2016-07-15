@@ -37,6 +37,10 @@ struct RayforceGraph
   uniform int32     geom_materialID;     // per-object material ID
 };
 
+extern void rayforceIntersectFunc(void *uniform  graphs,
+                                  void *uniform  ray,
+                                  uniform uint64 item);
+
 static void RayforceGraph_postIntersect(uniform Geometry *uniform _self,
                                         uniform Model *uniform model,
                                         varying DifferentialGeometry &dg,
@@ -53,9 +57,12 @@ static void RayforceGraph_postIntersect(uniform Geometry *uniform _self,
   const uniform float *uniform normal = self->normal;
   const uniform int32 norSize = self->norSize;
   if ((flags & DG_NS) && normal) {
-    const uniform vec3f *const varying n0ptr = (const uniform vec3f *)&normal[index.x * norSize];
-    const uniform vec3f *const varying n1ptr = (const uniform vec3f *)&normal[index.y * norSize];
-    const uniform vec3f *const varying n2ptr = (const uniform vec3f *)&normal[index.z * norSize];
+    const uniform vec3f *const varying n0ptr =
+        (const uniform vec3f *)&normal[index.x * norSize];
+    const uniform vec3f *const varying n1ptr =
+        (const uniform vec3f *)&normal[index.y * norSize];
+    const uniform vec3f *const varying n2ptr =
+        (const uniform vec3f *)&normal[index.z * norSize];
     dg.Ns
       = (1.f-ray.u-ray.v) * *n0ptr
       + ray.u * *n1ptr
@@ -95,9 +102,12 @@ static void RayforceGraph_postIntersect(uniform Geometry *uniform _self,
         const float invDet = rcp(det);
         const uniform float *uniform vertex = self->vertex;
         const uniform int32 vtxSize = self->vtxSize;
-        const vec3f *const varying v0ptr = (const uniform vec3f *)&vertex[index.x * vtxSize];
-        const vec3f *const varying v1ptr = (const uniform vec3f *)&vertex[index.y * vtxSize];
-        const vec3f *const varying v2ptr = (const uniform vec3f *)&vertex[index.z * vtxSize];
+        const vec3f *const varying v0ptr =
+            (const uniform vec3f *)&vertex[index.x * vtxSize];
+        const vec3f *const varying v1ptr =
+            (const uniform vec3f *)&vertex[index.y * vtxSize];
+        const vec3f *const varying v2ptr =
+            (const uniform vec3f *)&vertex[index.z * vtxSize];
         const vec3f dp02 = *v0ptr - *v2ptr;
         const vec3f dp12 = *v1ptr - *v2ptr;
         dg.dPds = (dst12.y * dp02 - dst02.y * dp12) * invDet;
@@ -123,6 +133,62 @@ static void RayforceGraph_postIntersect(uniform Geometry *uniform _self,
 
     if( self->materialList) {
       dg.material = self->materialList[dg.materialID < 0 ? 0 : dg.materialID];
+    }
+  }
+}
+
+unmasked void RfGraph_bounds(uniform RayforceGraph *uniform self,
+                             uniform size_t primID,
+                             uniform box3fa &bbox)
+{
+#if 0
+  uniform uint8 *uniform spherePtr = self->data
+      + self->bytesPerSphere*((uniform int64)primID);
+  uniform bool offr = self->offset_radius >= 0;
+  uniform float radius =
+      offr ? *((uniform float *uniform)(spherePtr+self->offset_radius)) :
+             self->radius;
+  uniform vec3f center =
+      *((uniform vec3f*uniform)(spherePtr+self->offset_center));
+  bbox = make_box3fa(center-make_vec3f(radius),center+make_vec3f(radius));
+#endif
+}
+
+void RfGraph_intersect(uniform RayforceGraph *uniform self,
+                       varying Ray &_ray,
+                       uniform size_t primID)
+{
+  foreach_active(l) {
+    uniform Ray ray;
+    ray.org.x = extract(_ray.org.x, l);
+    ray.org.y = extract(_ray.org.y, l);
+    ray.org.z = extract(_ray.org.z, l);
+
+    ray.dir.x = extract(_ray.dir.x, l);
+    ray.dir.y = extract(_ray.dir.y, l);
+    ray.dir.z = extract(_ray.dir.z, l);
+
+    ray.t0 = extract(_ray.t0, l);
+    ray.t  = extract(_ray.t, l);
+
+    ray.time = extract(_ray.time, l);
+    ray.mask = extract(_ray.mask, l);
+
+    rayforceIntersectFunc(self[primID].geometry.cppEquivalent, &ray, primID);
+
+    if (ray.geomID != RTC_INVALID_GEOMETRY_ID) {
+      _ray.Ng.x = insert(_ray.Ng.x, l, ray.Ng.x);
+      _ray.Ng.y = insert(_ray.Ng.y, l, ray.Ng.y);
+      _ray.Ng.z = insert(_ray.Ng.z, l, ray.Ng.z);
+
+      _ray.t = insert(_ray.t, l, ray.t);
+
+      _ray.u = insert(_ray.u, l, ray.u);
+      _ray.v = insert(_ray.v, l, ray.v);
+
+      _ray.geomID = insert(_ray.geomID, l, ray.geomID);
+      _ray.primID = insert(_ray.primID, l, ray.primID);
+      _ray.instID = insert(_ray.instID, l, ray.instID);
     }
   }
 }
@@ -171,22 +237,22 @@ export void *uniform RayforceGraph_create(void *uniform cppEquivalent)
   return geom;
 }
 
-export void *uniform RayforceGraph_set(void *uniform _mesh,
-                                       void *uniform _model,
-                                       uniform int32  geomID,
-                                       uniform int32  numTriangles,
-                                       uniform int32  idxSize,
-                                       uniform int32  vtxSize,
-                                       uniform int32  norSize,
-                                       uniform int    *uniform index,
-                                       uniform float  *uniform vertex,
-                                       uniform float  *uniform normal,
-                                       uniform vec4f  *uniform color,
-                                       uniform vec2f  *uniform texcoord,
-                                       uniform int32   geom_materialID,
-                                       void *uniform material,
-                                       void *uniform _materialList,
-                                       uniform uint32 *uniform prim_materialID)
+export void RayforceGraph_set(void *uniform _mesh,
+                              void *uniform _model,
+                              uniform int32  geomID,
+                              uniform int32  numTriangles,
+                              uniform int32  idxSize,
+                              uniform int32  vtxSize,
+                              uniform int32  norSize,
+                              uniform int    *uniform index,
+                              uniform float  *uniform vertex,
+                              uniform float  *uniform normal,
+                              uniform vec4f  *uniform color,
+                              uniform vec2f  *uniform texcoord,
+                              uniform int32   geom_materialID,
+                              void *uniform material,
+                              void *uniform _materialList,
+                              uniform uint32 *uniform prim_materialID)
 {
   uniform RayforceGraph *uniform mesh = (uniform RayforceGraph *uniform)_mesh;
   uniform Model *uniform model = (uniform Model *uniform)_model;
@@ -207,4 +273,12 @@ export void *uniform RayforceGraph_set(void *uniform _mesh,
                             (Material*uniform)material,
                             (Material*uniform*uniform)materialList,
                             prim_materialID);
+
+  rtcSetUserData(model->embreeSceneHandle,geomID,mesh);
+  rtcSetBoundsFunction(model->embreeSceneHandle,geomID,
+                       (uniform RTCBoundsFunc)&RfGraph_bounds);
+  rtcSetIntersectFunction(model->embreeSceneHandle,geomID,
+                          (uniform RTCIntersectFuncVarying)&RfGraph_intersect);
+  rtcSetOccludedFunction(model->embreeSceneHandle,geomID,
+                          (uniform RTCOccludedFuncVarying)&RfGraph_intersect);
 }
