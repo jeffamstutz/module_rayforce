@@ -19,13 +19,6 @@
 #include "commandline/SceneParser/trianglemesh/TriangleMeshSceneParser.h"
 #include "ospray/ospray.h"
 
-class AORendererParser : public RendererParser
-{
-public:
-  bool parse(int ac, const char **&av) override { return true; }
-  ospray::cpp::Renderer renderer() override { return std::string("raycast"); }
-};
-
 class RayforceSceneParser : public TriangleMeshSceneParser
 {
 public:
@@ -40,7 +33,7 @@ int main(int ac, const char **av)
   ospray::glut3D::initGLUT(&ac,av);
 
   ospLoadModule("rayforce");
-  auto ospObjs = parseCommandLine<AORendererParser,
+  auto ospObjs = parseCommandLine<DefaultRendererParser,
                                   DefaultCameraParser,
                                   RayforceSceneParser,
                                   DefaultLightsParser>(ac, av);

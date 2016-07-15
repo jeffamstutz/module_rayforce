@@ -50,6 +50,7 @@ void getRay(const T& rays, RTCRay &ray, int i)
 
   ray.primID = rays.primID[i];
   ray.geomID = rays.geomID[i];
+  ray.instID = rays.instID[i];
 }
 
 template<typename T>
@@ -64,7 +65,6 @@ void setRay(const RTCRay& ray, T &rays, int i)
     rays.geomID[i] = ray.geomID;
     rays.instID[i] = ray.instID;
     rays.tfar[i]   = ray.tfar;
-    rays.tnear[i]  = ray.tnear;
     rays.u[i]      = ray.u;
     rays.v[i]      = ray.v;
   }
