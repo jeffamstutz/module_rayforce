@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "Geometry.h"
+#include "geometry/Geometry.h"
 #include "ospray/common/Data.h"
 
 #include <rfut/CullMode.h>

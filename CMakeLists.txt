@@ -16,8 +16,6 @@
 
 option(OSPRAY_MODULE_RAYFORCE "Build 'RAYF' (rayforce model viewer)" ON)
 
-configure_ospray()
-
 if (OSPRAY_MODULE_RAYFORCE AND NOT THIS_IS_MIC)
 
   find_package(Rayforce REQUIRED)
@@ -25,21 +23,10 @@ if (OSPRAY_MODULE_RAYFORCE AND NOT THIS_IS_MIC)
   # -------------------------------------------------------
 
   include_directories(
-    ${PROJECT_SOURCE_DIR}/ospray
-    ${PROJECT_SOURCE_DIR}/ospray/geometry
-    ${PROJECT_SOURCE_DIR}/ospray/include
-    ${CMAKE_CURRENT_SOURCE_DIR}
     ${RAYFORCE_INCLUDE_DIR}
-    ${EMBREE_INCLUDE_DIRS}
   )
 
-  include_directories_ispc(
-    ${PROJECT_SOURCE_DIR}/ospray
-    ${PROJECT_SOURCE_DIR}/ospray/geometry
-    ${PROJECT_SOURCE_DIR}/ospray/include
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    ${EMBREE_INCLUDE_DIRS}
-  )
+  include_directories_ispc(${CMAKE_CURRENT_SOURCE_DIR})
 
   ospray_add_library(ospray_module_rayforce SHARED
     RayforceGraph.cpp
@@ -68,6 +55,7 @@ if (OSPRAY_MODULE_RAYFORCE AND NOT THIS_IS_MIC)
 
     target_link_libraries(ospRayforceViewer
       ospray
+      ospray_commandline
       ospray_minisg
       ospray_glut3d
       ${OPENGL_LIBRARIES}

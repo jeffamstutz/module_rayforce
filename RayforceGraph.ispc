@@ -15,10 +15,10 @@
 // ======================================================================== //
 
 // ospray
-#include "ospray/common/Ray.ih"
-#include "ospray/common/Model.ih"
-#include "ospray/geometry/Geometry.ih"
-#include "ospray/math/LinearSpace.ih"
+#include "common/Ray.ih"
+#include "common/Model.ih"
+#include "geometry/Geometry.ih"
+#include "math/LinearSpace.ih"
 
 struct RayforceGraph
 {
