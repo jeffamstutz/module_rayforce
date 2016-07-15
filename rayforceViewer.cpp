@@ -23,7 +23,7 @@ class AORendererParser : public RendererParser
 {
 public:
   bool parse(int ac, const char **&av) override { return true; }
-  ospray::cpp::Renderer renderer() override { return std::string("ao1"); }
+  ospray::cpp::Renderer renderer() override { return std::string("raycast"); }
 };
 
 class RayforceSceneParser : public TriangleMeshSceneParser
