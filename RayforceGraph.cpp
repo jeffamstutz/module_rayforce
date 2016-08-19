@@ -140,59 +140,55 @@ static void rayforceIntersectFunc(const RayforceGraph* graphs,
   traceRay(graph, ray);
 }
 
-static void rayforceIntersectFunc4(const void*          _mask,
-                                   const RayforceGraph* graphs,
-                                   RTCRay4&             rays,
-                                   size_t               item)
+static void rayforceIntersectFuncN(const int*                 valid,
+                                   const RayforceGraph*       graphs,
+                                   const RTCIntersectContext* context,
+                                   RTCRayNp*                  rays,
+                                   size_t                     N,
+                                   size_t                     item)
 {
+  UNUSED(context);
   const RayforceGraph& graph = graphs[item];
-  const int *mask = (int*)_mask;
 
-  for (int i = 0; i < 4; ++i) {
-    if (mask[i]) {
+  for (int i = 0; i < N; ++i) {
+    if (valid[i]) {
       RTCRay ray;
-      getRay(rays, ray, i);
+      getRay(*rays, ray, i);
       traceRay(graph, ray);
-      setRay(ray, rays, i);
+      setRay(ray, *rays, i);
     }
   }
 }
 
-static void rayforceIntersectFunc8(const void*          _mask,
-                                   const RayforceGraph* graphs,
-                                   RTCRay8&             rays,
-                                   size_t               item)
+static void rayforceIntersectFunc1Mp(const RayforceGraph*       graphs,
+                                     const RTCIntersectContext* context,
+                                     RTCRay**                   rays,
+                                     size_t                     M,
+                                     size_t                     item)
 {
+  UNUSED(context);
   const RayforceGraph& graph = graphs[item];
-  const int *mask = (int*)_mask;
 
-  for (int i = 0; i < 8; ++i) {
-    if (mask[i]) {
-      RTCRay ray;
-      getRay(rays, ray, i);
-      traceRay(graph, ray);
-      setRay(ray, rays, i);
-    }
+  for (size_t i = 0; i < M; ++i){
+    traceRay(graph, *rays[i]);
   }
 }
 
-static void rayforceIntersectFunc16(const void*          _mask,
+template<int SIZE>
+static void rayforceIntersectFuncNt(const int*           mask,
                                     const RayforceGraph* graphs,
-                                    RTCRay16&            rays,
+                                    RTCRayNt<SIZE>&      _rays,
                                     size_t               item)
 {
-  const RayforceGraph& graph = graphs[item];
-  const int *mask = (int*)_mask;
-
-  for (int i = 0; i < 16; ++i) {
-    if (mask[i]) {
-      RTCRay ray;
-      getRay(rays, ray, i);
-      traceRay(graph, ray);
-      setRay(ray, rays, i);
-    }
-  }
+  RTCIntersectContext ctx;
+  RTCRayNp rays {_rays.orgx, _rays.orgy, _rays.orgz, _rays.dirx, _rays.diry,
+                 _rays.dirz, _rays.tnear, _rays.tfar, _rays.time, _rays.mask,
+                 _rays.Ngx, _rays.Ngy, _rays.Ngz, _rays.u, _rays.v,
+                 _rays.geomID, _rays.primID, _rays.instID};
+  rayforceIntersectFuncN(mask, graphs, &ctx, &rays, SIZE, item);
 }
+
+// RayforceGraph definitions //////////////////////////////////////////////////
 
 RayforceGraph::RayforceGraph()
   : eMesh(RTC_INVALID_GEOMETRY_ID)
@@ -358,15 +354,25 @@ void RayforceGraph::finalize(Model *model)
 
   rtcSetIntersectFunction4(embreeSceneHandle,
                            eMesh,
-                           (RTCIntersectFunc4)&rayforceIntersectFunc4);
+                           (RTCIntersectFunc4)&rayforceIntersectFuncNt<4>);
 
   rtcSetIntersectFunction8(embreeSceneHandle,
                            eMesh,
-                           (RTCIntersectFunc8)&rayforceIntersectFunc8);
+                           (RTCIntersectFunc8)&rayforceIntersectFuncNt<8>);
 
   rtcSetIntersectFunction16(embreeSceneHandle,
                             eMesh,
-                            (RTCIntersectFunc16)&rayforceIntersectFunc16);
+                            (RTCIntersectFunc16)&rayforceIntersectFuncNt<16>);
+
+#if 0
+  rtcSetIntersectFunction1Mp(embreeSceneHandle,
+                             eMesh,
+                             (RTCIntersectFunc1Mp)&rayforceIntersectFunc1Mp);
+
+  rtcSetIntersectFunctionN(embreeSceneHandle,
+                           eMesh,
+                           (RTCIntersectFuncN)&rayforceIntersectFuncN);
+#endif
 
   rtcSetOccludedFunction(embreeSceneHandle,
                          eMesh,
@@ -374,15 +380,25 @@ void RayforceGraph::finalize(Model *model)
 
   rtcSetOccludedFunction4(embreeSceneHandle,
                           eMesh,
-                          (RTCOccludedFunc4)&rayforceIntersectFunc4);
+                          (RTCOccludedFunc4)&rayforceIntersectFuncNt<4>);
 
   rtcSetOccludedFunction8(embreeSceneHandle,
                           eMesh,
-                          (RTCOccludedFunc8)&rayforceIntersectFunc8);
+                          (RTCOccludedFunc8)&rayforceIntersectFuncNt<8>);
 
   rtcSetOccludedFunction16(embreeSceneHandle,
                            eMesh,
-                           (RTCOccludedFunc16)&rayforceIntersectFunc16);
+                           (RTCOccludedFunc16)&rayforceIntersectFuncNt<16>);
+
+#if 0
+  rtcSetOccludedFunction1Mp(embreeSceneHandle,
+                            eMesh,
+                            (RTCIntersectFunc1Mp)&rayforceIntersectFunc1Mp);
+
+  rtcSetOccludedFunctionN(embreeSceneHandle,
+                          eMesh,
+                          (RTCIntersectFuncN)&rayforceIntersectFuncN);
+#endif
 
   bounds = empty;
 
@@ -407,8 +423,8 @@ void RayforceGraph::finalize(Model *model)
                           (uint32*)prim_materialID);
 }
 
-OSP_REGISTER_GEOMETRY(RayforceGraph,rfgraph);
-OSP_REGISTER_GEOMETRY(RayforceGraph,rayforce);
+OSP_REGISTER_GEOMETRY(RayforceGraph,rfgraph)
+OSP_REGISTER_GEOMETRY(RayforceGraph,rayforce)
 
 extern "C" void ospray_init_module_rayforce()
 {
