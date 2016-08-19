@@ -31,6 +31,10 @@ extern rfPipeline rfRays;
 
 namespace ospray {
 
+#ifdef USE_CPP_INTERFACE
+  namespace cpp_renderer {
+#endif
+
 template<typename T>
 void getRay(const T& rays, RTCRay &ray, int i)
 {
@@ -214,7 +218,7 @@ RayforceGraph::~RayforceGraph()
 
 std::string RayforceGraph::toString() const
 {
-  return "ospray::TriangleMesh";
+  return "ospray::RayforceGraph";
 }
 
 void RayforceGraph::finalize(Model *model)
@@ -245,6 +249,7 @@ void RayforceGraph::finalize(Model *model)
   this->materialList =
       materialListData ? (ospray::Material**)materialListData->data : nullptr;
 
+#if 0
   if (materialList && !ispcMaterialPtrs) {
     const int num_materials = materialListData->numItems;
     ispcMaterialPtrs = new void*[num_materials];
@@ -254,36 +259,32 @@ void RayforceGraph::finalize(Model *model)
       this->ispcMaterialPtrs[i] = this->materialList[i]->getIE();
     }
   }
+#endif
 
-  size_t numTris  = -1;
   size_t numVerts = -1;
-
-  size_t numCompsInTri = 0;
-  size_t numCompsInVtx = 0;
-  size_t numCompsInNor = 0;
   switch (indexData->type) {
   case OSP_INT:
-  case OSP_UINT:  numTris = indexData->size() / 3; numCompsInTri = 3; break;
+  case OSP_UINT:  numTris = indexData->size() / 3; idxSize = 3; break;
   case OSP_INT3:
-  case OSP_UINT3: numTris = indexData->size(); numCompsInTri = 3; break;
+  case OSP_UINT3: numTris = indexData->size(); idxSize = 3; break;
   case OSP_UINT4:
-  case OSP_INT4:  numTris = indexData->size(); numCompsInTri = 4; break;
+  case OSP_INT4:  numTris = indexData->size(); idxSize = 4; break;
   default:
     throw std::runtime_error("unsupported trianglemesh.index data type");
   }
 
   switch (vertexData->type) {
-  case OSP_FLOAT:   numVerts = vertexData->size() / 4; numCompsInVtx = 4; break;
-  case OSP_FLOAT3:  numVerts = vertexData->size(); numCompsInVtx = 3; break;
-  case OSP_FLOAT3A: numVerts = vertexData->size(); numCompsInVtx = 4; break;
-  case OSP_FLOAT4 : numVerts = vertexData->size(); numCompsInVtx = 4; break;
+  case OSP_FLOAT:   numVerts = vertexData->size() / 4; vtxSize = 4; break;
+  case OSP_FLOAT3:  numVerts = vertexData->size(); vtxSize = 3; break;
+  case OSP_FLOAT3A: numVerts = vertexData->size(); vtxSize = 4; break;
+  case OSP_FLOAT4 : numVerts = vertexData->size(); vtxSize = 4; break;
   default:
     throw std::runtime_error("unsupported trianglemesh.vertex data type");
   }
   if (normalData) switch (normalData->type) {
-  case OSP_FLOAT3:  numCompsInNor = 3; break;
+  case OSP_FLOAT3:  norSize = 3; break;
   case OSP_FLOAT:
-  case OSP_FLOAT3A: numCompsInNor = 4; break;
+  case OSP_FLOAT3A: norSize = 4; break;
   default:
     throw std::runtime_error("unsupported vertex.normal data type");
   }
@@ -293,7 +294,7 @@ void RayforceGraph::finalize(Model *model)
   if (loadGraphFile.empty()) {
     float *vertices = new float[numVerts*3];
     for (uint i = 0; i < numVerts; ++i) {
-      auto *v = &vertex[numCompsInVtx*i];
+      auto *v = &vertex[vtxSize*i];
       vertices[3*i+0] = v[0];
       vertices[3*i+1] = v[1];
       vertices[3*i+2] = v[2];
@@ -301,7 +302,7 @@ void RayforceGraph::finalize(Model *model)
 
     uint *indices = new uint[numTris*3];
     for (uint i = 0; i < numTris; ++i) {
-      auto *t = &index[numCompsInTri*i];
+      auto *t = &index[idxSize*i];
       indices[3*i+0] = static_cast<uint>(t[0]);
       indices[3*i+1] = static_cast<uint>(t[1]);
       indices[3*i+2] = static_cast<uint>(t[2]);
@@ -342,11 +343,27 @@ void RayforceGraph::finalize(Model *model)
                        eMesh,
                        (RTCBoundsFunc)&rayforceBoundsFunc);
 
+#ifdef OSPRAY_USE_EMBREE_STREAMS
+  rtcSetIntersectFunction1Mp(embreeSceneHandle,
+                             eMesh,
+                             (RTCIntersectFunc1Mp)&rayforceIntersectFunc1Mp);
+
+  rtcSetIntersectFunctionN(embreeSceneHandle,
+                           eMesh,
+                           (RTCIntersectFuncN)&rayforceIntersectFuncN);
+
+  rtcSetOccludedFunction1Mp(embreeSceneHandle,
+                            eMesh,
+                            (RTCOccludedFunc1Mp)&rayforceIntersectFunc1Mp);
+
+  rtcSetOccludedFunctionN(embreeSceneHandle,
+                          eMesh,
+                          (RTCOccludedFuncN)&rayforceIntersectFuncN);
+#else
   rtcSetIntersectFunction(embreeSceneHandle,
                           eMesh,
                           (RTCIntersectFunc)&rayforceIntersectFunc);
 
-#if 0
   rtcSetIntersectFunction4(embreeSceneHandle,
                            eMesh,
                            (RTCIntersectFunc4)&rayforceIntersectFuncNt<4>);
@@ -358,21 +375,11 @@ void RayforceGraph::finalize(Model *model)
   rtcSetIntersectFunction16(embreeSceneHandle,
                             eMesh,
                             (RTCIntersectFunc16)&rayforceIntersectFuncNt<16>);
-#else
-  rtcSetIntersectFunction1Mp(embreeSceneHandle,
-                             eMesh,
-                             (RTCIntersectFunc1Mp)&rayforceIntersectFunc1Mp);
-
-  rtcSetIntersectFunctionN(embreeSceneHandle,
-                           eMesh,
-                           (RTCIntersectFuncN)&rayforceIntersectFuncN);
-#endif
 
   rtcSetOccludedFunction(embreeSceneHandle,
                          eMesh,
                          (RTCOccludedFunc)&rayforceIntersectFunc);
 
-#if 0
   rtcSetOccludedFunction4(embreeSceneHandle,
                           eMesh,
                           (RTCOccludedFunc4)&rayforceIntersectFuncNt<4>);
@@ -384,27 +391,19 @@ void RayforceGraph::finalize(Model *model)
   rtcSetOccludedFunction16(embreeSceneHandle,
                            eMesh,
                            (RTCOccludedFunc16)&rayforceIntersectFuncNt<16>);
-#else
-  rtcSetOccludedFunction1Mp(embreeSceneHandle,
-                            eMesh,
-                            (RTCOccludedFunc1Mp)&rayforceIntersectFunc1Mp);
-
-  rtcSetOccludedFunctionN(embreeSceneHandle,
-                          eMesh,
-                          (RTCOccludedFuncN)&rayforceIntersectFuncN);
 #endif
 
   bounds = empty;
 
-  for (int i = 0; i < numVerts * numCompsInVtx; i += numCompsInVtx)
+  for (size_t i = 0; i < numVerts*vtxSize; i += vtxSize)
     bounds.extend(*(vec3f*)(vertex + i));
 
   ispc::RayforceGraph_set(getIE(),model->getIE(),
                           eMesh,
                           numTris,
-                          numCompsInTri,
-                          numCompsInVtx,
-                          numCompsInNor,
+                          idxSize,
+                          vtxSize,
+                          norSize,
                           (int*)index,
                           (float*)vertex,
                           (float*)normal,
@@ -416,12 +415,89 @@ void RayforceGraph::finalize(Model *model)
                           (uint32*)prim_materialID);
 }
 
-OSP_REGISTER_GEOMETRY(RayforceGraph,rfgraph)
-OSP_REGISTER_GEOMETRY(RayforceGraph,rayforce)
+#ifdef USE_CPP_INTERFACE
+void RayforceGraph::postIntersect(DifferentialGeometry &dg,
+                                  const Ray &ray,
+                                  int flags) const
+{
+  dg.Ng = dg.Ns = ray.Ng;
+  const int base = idxSize * ray.primID;
+  const vec3i idx = vec3i{index[base+0], index[base+1], index[base+2]};
+
+  if ((flags & DG_NS) && normal) {
+    const vec3f &n0 = normal[idx.x * norSize];
+    const vec3f &n1 = normal[idx.y * norSize];
+    const vec3f &n2 = normal[idx.z * norSize];
+    dg.Ns = (1.f-ray.u-ray.v) * n0 + (ray.u * n1) + (ray.v * n2);
+  }
+
+  if ((flags & DG_COLOR) && color) {
+    dg.color = (1.f-ray.u-ray.v) * (color[idx.x])
+               + ray.u * (color[idx.y])
+               + ray.v * (color[idx.z]);
+  }
+
+  if (flags & DG_TEXCOORD && texcoord) {
+    //calculate texture coordinate using barycentric coordinates
+    dg.st = (1.f-ray.u-ray.v) * (texcoord[idx.x])
+            + ray.u * (texcoord[idx.y])
+            + ray.v * (texcoord[idx.z]);
+  } else {
+    dg.st = vec2f{0.0f};
+  }
+
+  if (flags & DG_TANGENTS) {
+    bool fallback = true;
+    if (texcoord) {
+      const vec2f dst02 = texcoord[idx.x] - texcoord[idx.z];
+      const vec2f dst12 = texcoord[idx.y] - texcoord[idx.z];
+      const float det = dst02.x * dst12.y - dst02.y * dst12.x;
+
+      if (det != 0.f) {
+        const float invDet = rcp(det);
+        const vec3f &v0 = vertex[idx.x * vtxSize];
+        const vec3f &v1 = vertex[idx.y * vtxSize];
+        const vec3f &v2 = vertex[idx.z * vtxSize];
+        const vec3f dp02 = v0 - v2;
+        const vec3f dp12 = v1 - v2;
+        dg.dPds = (dst12.y * dp02 - dst02.y * dp12) * invDet;
+        dg.dPdt = (dst02.x * dp12 - dst12.x * dp02) * invDet;
+        fallback = false;
+      }
+    }
+    if (fallback) {
+      linear3f f = frame(dg.Ng);
+      dg.dPds = f.vx;
+      dg.dPdt = f.vy;
+    }
+  }
+
+  if (flags & DG_MATERIALID) {
+    if (prim_materialID) {
+      dg.materialID = prim_materialID[ray.primID];
+    }
+    else {
+      dg.materialID = geom_materialID;
+    }
+
+    if(materialList) {
+      Material *myMat = materialList[dg.materialID < 0 ? 0 : dg.materialID];
+      dg.material = myMat;
+    }
+  }
+}
+#endif
+
+OSP_REGISTER_GEOMETRY(RayforceGraph, rfgraph)
+OSP_REGISTER_GEOMETRY(RayforceGraph, rayforce)
 
 extern "C" void ospray_init_module_rayforce()
 {
   printf("Loaded plugin 'rayforce' ...\n");
 }
+
+#ifdef USE_CPP_INTERFACE
+} // ::ospray::cpp_renderer
+#endif
 
 } // ::ospray

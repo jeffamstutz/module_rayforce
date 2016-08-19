@@ -16,7 +16,11 @@
 
 #pragma once
 
-#include "geometry/Geometry.h"
+#ifdef USE_CPP_INTERFACE
+# include "../cpp_renderer/geometry/Geometry.h"
+#else
+# include "geometry/Geometry.h"
+#endif
 #include "ospray/common/Data.h"
 
 #include <rfut/CullMode.h>
@@ -33,13 +37,26 @@
 
 namespace ospray {
 
+#ifdef USE_CPP_INTERFACE
+  namespace cpp_renderer {
+#endif
+
+#ifdef USE_CPP_INTERFACE
+  struct RayforceGraph : public cpp_renderer::Geometry
+#else
   struct RayforceGraph : public Geometry
+#endif
   {
 
     RayforceGraph();
     ~RayforceGraph();
     std::string toString() const override;
     void finalize(Model *model) override;
+
+    size_t numTris{-1};
+    size_t idxSize{0};
+    size_t vtxSize{0};
+    size_t norSize{0};
 
     const int    *index;  //!< mesh's triangle index array
     const float  *vertex; //!< mesh's vertex array
@@ -70,6 +87,18 @@ namespace ospray {
     rfut::TraceFcn<Target::System>* rf_traceFcn;
 
     void** ispcMaterialPtrs; /*!< pointers to ISPC equivalent materials */
+
+#ifdef USE_CPP_INTERFACE
+    // ospray::cpp_renderer::Geometry interface ///////////////////////////////
+
+    void postIntersect(DifferentialGeometry &dg,
+                       const Ray &ray,
+                       int flags) const override;
+#endif
   };
+
+#ifdef USE_CPP_INTERFACE
+  } // ::ospray::cpp_renderer
+#endif
 
 } // ::ospray
