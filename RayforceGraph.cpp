@@ -193,7 +193,7 @@ static void rayforceIntersectFuncNt(const int*           mask,
 RayforceGraph::RayforceGraph()
   : eMesh(RTC_INVALID_GEOMETRY_ID)
 {
-  this->ispcMaterialPtrs = NULL;
+  this->ispcMaterialPtrs = nullptr;
   this->ispcEquivalent = ispc::RayforceGraph_create(this);
 
   rf_context = new rfut::Context;
@@ -235,27 +235,22 @@ void RayforceGraph::finalize(Model *model)
   std::string saveGraphFile = getParamString("saveGraphFile", "");
   std::string loadGraphFile = getParamString("loadGraphFile", "");
 
-  Assert2(vertexData != NULL,
-          "triangle mesh geometry does not have either 'position'"
-          " or 'vertex' array");
-  Assert2(indexData != NULL,
-          "triangle mesh geometry does not have either 'index'"
-          " or 'triangle' array");
-
   this->index = (int*)indexData->data;
   this->vertex = (float*)vertexData->data;
-  this->normal = normalData ? (float*)normalData->data : NULL;
-  this->color  = colorData ? (vec4f*)colorData->data : NULL;
-  this->texcoord = texcoordData ? (vec2f*)texcoordData->data : NULL;
-  this->prim_materialID  = prim_materialIDData ? (uint32*)prim_materialIDData->data : NULL;
-  this->materialList  = materialListData ? (ospray::Material**)materialListData->data : NULL;
+  this->normal = normalData ? (float*)normalData->data : nullptr;
+  this->color  = colorData ? (vec4f*)colorData->data : nullptr;
+  this->texcoord = texcoordData ? (vec2f*)texcoordData->data : nullptr;
+  this->prim_materialID =
+      prim_materialIDData ? (uint32*)prim_materialIDData->data : nullptr;
+  this->materialList =
+      materialListData ? (ospray::Material**)materialListData->data : nullptr;
 
   if (materialList && !ispcMaterialPtrs) {
     const int num_materials = materialListData->numItems;
     ispcMaterialPtrs = new void*[num_materials];
     for (int i = 0; i < num_materials; i++) {
-      assert(this->materialList[i] != NULL &&
-             "Materials in list should never be NULL");
+      assert(this->materialList[i] != nullptr &&
+             "Materials in list should never be nullptr");
       this->ispcMaterialPtrs[i] = this->materialList[i]->getIE();
     }
   }
@@ -338,9 +333,8 @@ void RayforceGraph::finalize(Model *model)
   rf_traceFcn = new rfut::TraceFcn<Target::System>(*rf_scene, rfRays);
 
   // Save graph cache
-  if (!saveGraphFile.empty() && loadGraphFile.empty()) {
+  if (!saveGraphFile.empty() && loadGraphFile.empty())
     rf_model->saveCacheFile(saveGraphFile);
-  }
 
   rtcSetUserData(embreeSceneHandle, eMesh, this);
 
@@ -352,6 +346,7 @@ void RayforceGraph::finalize(Model *model)
                           eMesh,
                           (RTCIntersectFunc)&rayforceIntersectFunc);
 
+#if 0
   rtcSetIntersectFunction4(embreeSceneHandle,
                            eMesh,
                            (RTCIntersectFunc4)&rayforceIntersectFuncNt<4>);
@@ -363,8 +358,7 @@ void RayforceGraph::finalize(Model *model)
   rtcSetIntersectFunction16(embreeSceneHandle,
                             eMesh,
                             (RTCIntersectFunc16)&rayforceIntersectFuncNt<16>);
-
-#if 0
+#else
   rtcSetIntersectFunction1Mp(embreeSceneHandle,
                              eMesh,
                              (RTCIntersectFunc1Mp)&rayforceIntersectFunc1Mp);
@@ -378,6 +372,7 @@ void RayforceGraph::finalize(Model *model)
                          eMesh,
                          (RTCOccludedFunc)&rayforceIntersectFunc);
 
+#if 0
   rtcSetOccludedFunction4(embreeSceneHandle,
                           eMesh,
                           (RTCOccludedFunc4)&rayforceIntersectFuncNt<4>);
@@ -389,22 +384,20 @@ void RayforceGraph::finalize(Model *model)
   rtcSetOccludedFunction16(embreeSceneHandle,
                            eMesh,
                            (RTCOccludedFunc16)&rayforceIntersectFuncNt<16>);
-
-#if 0
+#else
   rtcSetOccludedFunction1Mp(embreeSceneHandle,
                             eMesh,
-                            (RTCIntersectFunc1Mp)&rayforceIntersectFunc1Mp);
+                            (RTCOccludedFunc1Mp)&rayforceIntersectFunc1Mp);
 
   rtcSetOccludedFunctionN(embreeSceneHandle,
                           eMesh,
-                          (RTCIntersectFuncN)&rayforceIntersectFuncN);
+                          (RTCOccludedFuncN)&rayforceIntersectFuncN);
 #endif
 
   bounds = empty;
 
-  for (int i = 0; i < numVerts * numCompsInVtx; i += numCompsInVtx) {
+  for (int i = 0; i < numVerts * numCompsInVtx; i += numCompsInVtx)
     bounds.extend(*(vec3f*)(vertex + i));
-  }
 
   ispc::RayforceGraph_set(getIE(),model->getIE(),
                           eMesh,
@@ -418,7 +411,7 @@ void RayforceGraph::finalize(Model *model)
                           (ispc::vec4f*)color,
                           (ispc::vec2f*)texcoord,
                           geom_materialID,
-                          getMaterial()?getMaterial()->getIE():NULL,
+                          getMaterial()?getMaterial()->getIE() : nullptr,
                           ispcMaterialPtrs,
                           (uint32*)prim_materialID);
 }
