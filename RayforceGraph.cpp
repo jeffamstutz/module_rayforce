@@ -488,8 +488,8 @@ void RayforceGraph::postIntersect(DifferentialGeometry &dg,
 }
 #endif
 
-OSP_REGISTER_GEOMETRY(RayforceGraph, rfgraph)
-OSP_REGISTER_GEOMETRY(RayforceGraph, rayforce)
+OSP_REGISTER_GEOMETRY(RayforceGraph, rfgraph);
+OSP_REGISTER_GEOMETRY(RayforceGraph, rayforce);
 
 extern "C" void ospray_init_module_rayforce()
 {
