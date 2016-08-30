@@ -28,7 +28,7 @@ if (OSPRAY_MODULE_RAYFORCE AND NOT THIS_IS_MIC)
 
   include_directories_ispc(${CMAKE_CURRENT_SOURCE_DIR})
 
-  ospray_create_library(module_rayforce
+  ospray_create_library(ospray_module_rayforce
     RayforceGraph.cpp
     RayforceGraph.h
     RayforceGraph.ispc
@@ -42,7 +42,7 @@ if (OSPRAY_MODULE_RAYFORCE AND NOT THIS_IS_MIC)
   set_source_files_properties(rfPipeline.c
     PROPERTIES COMPILE_FLAGS "-msse4.1 -std=gnu99")
 
-  ospray_create_application(RayforceViewer
+  ospray_create_application(ospRayforceViewer
     rayforceViewer.cpp
     LINK
     ospray
