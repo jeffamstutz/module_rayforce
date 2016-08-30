@@ -18,8 +18,10 @@ option(OSPRAY_MODULE_RAYFORCE "Build 'RAYF' (rayforce model viewer)" ON)
 
 if (OSPRAY_MODULE_RAYFORCE AND NOT THIS_IS_MIC)
 
-  if (DEFINED OSPRAY_MODULE_CPP AND ${OSPRAY_MODULE_CPP})
-    add_definitions(-DUSE_CPP_INTERFACE)
+  if (DEFINED OSPRAY_MODULE_CPP)
+    if (OSPRAY_MODULE_CPP)
+      add_definitions(-DUSE_CPP_INTERFACE)
+    endif()
   endif()
 
   find_package(Rayforce REQUIRED)
