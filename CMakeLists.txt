@@ -21,6 +21,7 @@ if (OSPRAY_MODULE_RAYFORCE AND NOT THIS_IS_MIC)
   if (DEFINED OSPRAY_MODULE_CPP)
     if (OSPRAY_MODULE_CPP)
       add_definitions(-DUSE_CPP_INTERFACE)
+      add_definitions(-DSTREAM_SIZE=${OSPRAY_MODULE_CPP_STREAM_SIZE})
     endif()
   endif()
 
