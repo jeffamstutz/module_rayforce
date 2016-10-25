@@ -69,22 +69,17 @@
 
 void cppTraceRay(void *graph, RTCRay &ray)
 {
-  int nredge;
-  rfssize slink;
+  rff hitdist = 0.f;
+  rfTri *trihit = nullptr;
+
+  void *root = resolve(graph, ray.org);
+
+  rff src[3] = {ray.org[0] + ray.tnear * ray.dir[0],
+                ray.org[1] + ray.tnear * ray.dir[1],
+                ray.org[2] + ray.tnear * ray.dir[2]};
+
   rff RF_ALIGN16 vectinv[4];
   int edgeindex[3];
-  rff src[3], dst[3], dist, mindist;
-  rff hitdist;
-  void *root;
-  rfTri *trihit;
-  int axisindex;
-
-  root = resolve(graph, ray.org);
-
-  src[0] = ray.org[0] + ray.tnear * ray.dir[0];
-  src[1] = ray.org[1] + ray.tnear * ray.dir[1];
-  src[2] = ray.org[2] + ray.tnear * ray.dir[2];
-
   RF_ELEM_PREPARE_AXIS(0);
   RF_ELEM_PREPARE_AXIS(1);
   RF_ELEM_PREPARE_AXIS(2);
@@ -95,14 +90,13 @@ void cppTraceRay(void *graph, RTCRay &ray)
     fprintf(stderr, "traversing sector\n");
 #endif
     /* Sector traversal */
-    int tricount;
 
     // [info]
     // Ray box intersection to determine endpoint of the line segment to
     // intersect with triangles. (faster than raw ray intersection, we think)
-    nredge = edgeindex[0];
-    mindist = (RF_SECTOR(root)->edge[edgeindex[0]] - src[0]) * vectinv[0];
-    dist = (RF_SECTOR(root)->edge[edgeindex[1]] - src[1]) * vectinv[1];
+    int nredge = edgeindex[0];
+    rff mindist = (RF_SECTOR(root)->edge[edgeindex[0]] - src[0]) * vectinv[0];
+    rff dist = (RF_SECTOR(root)->edge[edgeindex[1]] - src[1]) * vectinv[1];
     if( dist < mindist )
     {
       nredge = edgeindex[1];
@@ -116,8 +110,7 @@ void cppTraceRay(void *graph, RTCRay &ray)
     }
     // [/info]
 
-    tricount = RF_SECTOR_GET_PRIMCOUNT(RF_SECTOR(root));
-    trihit = 0;
+    int tricount = RF_SECTOR_GET_PRIMCOUNT(RF_SECTOR(root));
     if( tricount )
     {
       RF_TRILIST_TYPE *trilist;// addressing type
@@ -125,9 +118,9 @@ void cppTraceRay(void *graph, RTCRay &ray)
       // [info]
       // Calculating the endpoint using the entry (resolved origin)
       // and ray info
-      dst[0] = src[0] + ( mindist * ray.dir[0] );
-      dst[1] = src[1] + ( mindist * ray.dir[1] );
-      dst[2] = src[2] + ( mindist * ray.dir[2] );
+      rff dst[3] = {src[0] + (mindist * ray.dir[0]),
+                    src[1] + (mindist * ray.dir[1]),
+                    src[2] + (mindist * ray.dir[2])};
       // [/info]
 
       // [info]
@@ -162,7 +155,7 @@ void cppTraceRay(void *graph, RTCRay &ray)
         trihit = tri;
       } while( --tricount );
 
-      axisindex = nredge >> 1;
+      int axisindex = nredge >> 1;
       hitdist = (dst[axisindex] - ray.org[axisindex]) * vectinv[axisindex];
 
 #ifdef DEBUG_OUTPUT
@@ -188,7 +181,7 @@ void cppTraceRay(void *graph, RTCRay &ray)
       fprintf(stderr, "neighbor is a sector\n");
 #endif
       /* Neighbor is sector */
-      slink = (rfssize)RF_SECTOR(root)->link[nredge];
+      rfssize slink = (rfssize)RF_SECTOR(root)->link[nredge];
       if(!(slink))
       {
 #ifdef DEBUG_OUTPUT
