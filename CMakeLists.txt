@@ -32,9 +32,11 @@ if (OSPRAY_MODULE_RAYFORCE AND NOT THIS_IS_MIC)
   include_directories_ispc(${CMAKE_CURRENT_SOURCE_DIR})
 
   ospray_create_library(ospray_module_rayforce
+    rfgraph/resolve.h
     RayforceGraph.cpp
     RayforceGraph.h
     RayforceGraph.ispc
+    rfCpp.cpp
     rfPipeline.c
     rfStruct.h
     LINK

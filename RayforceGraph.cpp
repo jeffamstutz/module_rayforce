@@ -27,6 +27,11 @@
 #include "RayforceGraph_ispc.h"
 #include "rfStruct.h"
 
+#include <RF/rfdefs.h>
+#include <RF/rfgraph.h>
+
+#include "rfCpp.h"
+
 extern rfPipeline rfRays;
 
 namespace ospray {
@@ -89,6 +94,9 @@ static void rayforceBoundsFunc(const RayforceGraph* graphs,
 
 static void traceRay(const RayforceGraph &graph, RTCRay &_ray)
 {
+#if 1
+  cppTraceRay(graph.rf_scene->m_handle->objectgraph, _ray);
+#else
   // Setup ray
   rfRaySingle ray;
   rfRaySingleInit(&ray);
@@ -134,6 +142,7 @@ static void traceRay(const RayforceGraph &graph, RTCRay &_ray)
     _ray.u      = rayData.u;
     _ray.v      = rayData.v;
   }
+#endif
 }
 
 static void rayforceIntersectFunc(const RayforceGraph* graphs,
