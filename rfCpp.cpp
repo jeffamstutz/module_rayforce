@@ -243,7 +243,7 @@ void cppTraceRay(void *graph, RTCRay &ray)
 
   // We have a triangle intersection, go ahead and populate the ray in the
   // RayPacket accordingly
-  if(trihit)
+  if(trihit && hitdist < ray.tfar)
   {
     rfTriangleData* data =
             (rfTriangleData*)(RF_ADDRESS(trihit, sizeof(rfTri)));
