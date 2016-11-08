@@ -25,6 +25,9 @@
 
 #include "rfStruct.h"
 
+#include "common/Ray.h"
+using namespace ospray;
+
 #define T_EPSILON 0.f//1e-6
 
 //#define DEBUG_OUTPUT
@@ -63,23 +66,54 @@
       edgeindex[axis] = ( axis << RF_EDGE_AXIS_SHIFT ) | RF_EDGE_MAX; \
   }
 
+#if 0
+void rf_elem_prepare_axis(vec3f &vectinv, vec3i &edgeindex, Ray &ray)
+{
+  vectinv = vec3f{-RFF_MAX};
+  edgeindex.x = ( 0 << RF_EDGE_AXIS_SHIFT ) | RF_EDGE_MIN;
+  edgeindex.y = ( 1 << RF_EDGE_AXIS_SHIFT ) | RF_EDGE_MIN;
+  edgeindex.z = ( 2 << RF_EDGE_AXIS_SHIFT ) | RF_EDGE_MIN;
+
+  if( rffabs( ray.dir.x ) > (rff)0.0 )
+  {
+    vectinv.x = (rff)1.0 / ray.dir.x;
+    if( ray.dir.x >= (rff)0.0 )
+      edgeindex.x = ( 0 << RF_EDGE_AXIS_SHIFT ) | RF_EDGE_MAX;
+  }
+
+  if( rffabs( ray.dir.y ) > (rff)0.0 )
+  {
+    vectinv.y = (rff)1.0 / ray.dir.y;
+    if( ray.dir.y >= (rff)0.0 )
+      edgeindex.y = ( 1 << RF_EDGE_AXIS_SHIFT ) | RF_EDGE_MAX;
+  }
+
+  if( rffabs( ray.dir.z ) > (rff)0.0 )
+  {
+    vectinv.z = (rff)1.0 / ray.dir.z;
+    if( ray.dir.z >= (rff)0.0 )
+      edgeindex.z = ( 2 << RF_EDGE_AXIS_SHIFT ) | RF_EDGE_MAX;
+  }
+}
+#endif
+
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "rfgraph/resolve.h"
 
-void cppTraceRay(void *graph, RTCRay &ray)
+void cppTraceRay(void *graph, RTCRay &_ray)
 {
+  Ray &ray = reinterpret_cast<Ray&>(_ray);
   rff hitdist = 0.f;
+  rff uv[2];
   rfTri *trihit = nullptr;
 
-  void *root = resolve(graph, ray.org);
+  void *root = resolve(graph, (const rff *)&ray.org);
 
-  rff src[3] = {ray.org[0] + ray.tnear * ray.dir[0],
-                ray.org[1] + ray.tnear * ray.dir[1],
-                ray.org[2] + ray.tnear * ray.dir[2]};
+  auto src = ray.org + ray.t0 * ray.dir;
 
-  rff RF_ALIGN16 vectinv[4];
-  int edgeindex[3];
+  vec3f vectinv;
+  vec3i edgeindex;
   RF_ELEM_PREPARE_AXIS(0);
   RF_ELEM_PREPARE_AXIS(1);
   RF_ELEM_PREPARE_AXIS(2);
@@ -94,16 +128,19 @@ void cppTraceRay(void *graph, RTCRay &ray)
     // [info]
     // Ray box intersection to determine endpoint of the line segment to
     // intersect with triangles. (faster than raw ray intersection, we think)
-    int nredge = edgeindex[0];
-    rff mindist = (RF_SECTOR(root)->edge[edgeindex[0]] - src[0]) * vectinv[0];
-    rff dist = (RF_SECTOR(root)->edge[edgeindex[1]] - src[1]) * vectinv[1];
-    if( dist < mindist )
+    auto nredge = edgeindex[0];
+    auto mindist = (RF_SECTOR(root)->edge[edgeindex.x] - src.x) * vectinv.x;
+    auto dist = (RF_SECTOR(root)->edge[edgeindex.y] - src.y) * vectinv.y;
+
+    if(dist < mindist)
     {
       nredge = edgeindex[1];
       mindist = dist;
     }
-    dist = (RF_SECTOR(root)->edge[edgeindex[2]] - src[2]) * vectinv[2];
-    if( dist < mindist )
+
+    dist = (RF_SECTOR(root)->edge[edgeindex.z] - src.z) * vectinv.z;
+
+    if(dist < mindist)
     {
       nredge = edgeindex[2];
       mindist = dist;
@@ -111,49 +148,40 @@ void cppTraceRay(void *graph, RTCRay &ray)
     // [/info]
 
     int tricount = RF_SECTOR_GET_PRIMCOUNT(RF_SECTOR(root));
-    if( tricount )
+    if(tricount > 0)
     {
-      RF_TRILIST_TYPE *trilist;// addressing type
-
       // [info]
       // Calculating the endpoint using the entry (resolved origin)
       // and ray info
-      rff dst[3] = {src[0] + (mindist * ray.dir[0]),
-                    src[1] + (mindist * ray.dir[1]),
-                    src[2] + (mindist * ray.dir[2])};
+      auto dst = src + (mindist * ray.dir);
       // [/info]
 
       // [info]
       // Triangle intersection!
-      trilist = RF_TRILIST( RF_SECTOR(root) );
+      RF_TRILIST_TYPE *trilist = RF_TRILIST(RF_SECTOR(root));
+
       do
       {
-        rff dstdist, srcdist, uv[2], f, vray[3];
-        rfTri *tri;
-
-        tri = (rfTri *)RF_ADDRESS(root, (rfssize)(*trilist++) << RF_LINKSHIFT);
+        auto *tri =
+            (rfTri *)RF_ADDRESS(root, (rfssize)(*trilist++) << RF_LINKSHIFT);
 
         // Intersect the triangle, with no back/front face culling
-        dstdist = rfMathPlanePoint( tri->plane, dst );
-        srcdist = rfMathPlanePoint( tri->plane, src );
-        if( dstdist * srcdist > (rff)0.0 )
+        auto dstdist = rfMathPlanePoint(tri->plane, dst);
+        auto srcdist = rfMathPlanePoint(tri->plane, src);
+        if(dstdist * srcdist > (rff)0.0)
           continue;
-        f = srcdist / ( srcdist - dstdist );
-        vray[0] = src[0] + f * ( dst[0] - src[0] );
-        vray[1] = src[1] + f * ( dst[1] - src[1] );
-        vray[2] = src[2] + f * ( dst[2] - src[2] );
-        uv[0] = rfMathVectorDotProduct( &tri->edpu[0], vray ) + tri->edpu[3];
-        if( !( uv[0] >= (rff)0.0 ) || ( uv[0] > (rff)1.0 ) )
+        auto f = srcdist / (srcdist - dstdist);
+        auto vray = src + f * (dst - src);
+        uv[0] = rfMathVectorDotProduct(&tri->edpu[0], vray) + tri->edpu[3];
+        if(!(uv[0] >= 0.0f) || (uv[0] > 1.0f))
           continue;
-        uv[1] = rfMathVectorDotProduct( &tri->edpv[0], vray ) + tri->edpv[3];
-        if( ( uv[1] < (rff)0.0 ) || ( ( uv[0] + uv[1] ) > (rff)1.0 ) )
+        uv[1] = rfMathVectorDotProduct(&tri->edpv[0], vray) + tri->edpv[3];
+        if((uv[1] < 0.0f) || ((uv[0] + uv[1]) > 1.0f))
           continue;
-        dst[0] = vray[0];
-        dst[1] = vray[1];
-        dst[2] = vray[2];
+        dst = vray;
 
         trihit = tri;
-      } while( --tricount );
+      } while(--tricount);
 
       int axisindex = nredge >> 1;
       hitdist = (dst[axisindex] - ray.org[axisindex]) * vectinv[axisindex];
@@ -181,7 +209,7 @@ void cppTraceRay(void *graph, RTCRay &ray)
       fprintf(stderr, "neighbor is a sector\n");
 #endif
       /* Neighbor is sector */
-      rfssize slink = (rfssize)RF_SECTOR(root)->link[nredge];
+      auto slink = (rfssize)RF_SECTOR(root)->link[nredge];
       if(!(slink))
       {
 #ifdef DEBUG_OUTPUT
@@ -198,9 +226,7 @@ void cppTraceRay(void *graph, RTCRay &ray)
     // We have to do some kind of disambiguation of the neighbors to figure
     // out what sector we need to traverse to next.
     /* Neighbor is node */
-    src[0] += mindist * ray.dir[0];
-    src[1] += mindist * ray.dir[1];
-    src[2] += mindist * ray.dir[2];
+    src += mindist * ray.dir;
     root = RF_ADDRESS(root,
                       (rfssize)RF_SECTOR(root)->link[nredge] << RF_LINKSHIFT);
     // [/info]
@@ -212,14 +238,13 @@ void cppTraceRay(void *graph, RTCRay &ray)
       fprintf(stderr, "node traversal\n");
 #endif
 
-      int linkflags;
-      linkflags = RF_NODE(root)->flags;//--> pull out the current traversal
-                                       //    node
-                                       //...links to other nodes or a sector
+      int linkflags = RF_NODE(root)->flags;//--> pull out the current traversal
+                                           //    node
+                                           //...links to other nodes or a sector
       // [info]
       // Figure out which half-space we are traversing through the
       // diambiguation plane.
-      if( src[RF_NODE_GET_AXIS(linkflags)] < RF_NODE(root)->plane )
+      if(src[RF_NODE_GET_AXIS(linkflags)] < RF_NODE(root)->plane)
       {
         root = RF_ADDRESS(root,
                           (rfssize)RF_NODE(root)
@@ -233,8 +258,8 @@ void cppTraceRay(void *graph, RTCRay &ray)
         root = RF_ADDRESS(root,
                           (rfssize)RF_NODE(root)->link[RF_NODE_MORE]
                           << RF_LINKSHIFT);
-        if( linkflags & ((RF_LINK_SECTOR<<RF_NODE_LINKFLAGS_SHIFT)
-                         << RF_NODE_MORE))
+        if(linkflags & ((RF_LINK_SECTOR<<RF_NODE_LINKFLAGS_SHIFT)
+                        << RF_NODE_MORE))
           break;
       }
       // [/info]
@@ -243,15 +268,17 @@ void cppTraceRay(void *graph, RTCRay &ray)
 
   // We have a triangle intersection, go ahead and populate the ray in the
   // RayPacket accordingly
-  if(trihit && hitdist < ray.tfar)
+  if(trihit && hitdist < ray.t)
   {
-    rfTriangleData* data =
-            (rfTriangleData*)(RF_ADDRESS(trihit, sizeof(rfTri)));
+    auto *data = (rfTriangleData*)(RF_ADDRESS(trihit, sizeof(rfTri)));
 
-    ray.tfar = hitdist - T_EPSILON;
+    ray.t = hitdist - T_EPSILON;
     ray.Ng[0] = trihit->plane[0];
     ray.Ng[1] = trihit->plane[1];
     ray.Ng[2] = trihit->plane[2];
+
+    ray.u = uv[0];
+    ray.v = uv[1];
 
     ray.geomID = data->geomID;
     ray.instID = data->geomID;
