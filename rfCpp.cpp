@@ -190,8 +190,10 @@ void cppTraceRay(void *graph, RTCRay &_ray)
       fprintf(stderr, "hit triangle: %p\n", trihit);
 #endif
 
-      if(trihit && hitdist > T_EPSILON)
+      if(trihit && hitdist > ray.t0 && hitdist < ray.t)
         break;
+
+      trihit = nullptr;
     }
 #ifdef DEBUG_OUTPUT
     else
@@ -268,11 +270,11 @@ void cppTraceRay(void *graph, RTCRay &_ray)
 
   // We have a triangle intersection, go ahead and populate the ray in the
   // RayPacket accordingly
-  if(trihit && hitdist < ray.t)
+  if(trihit)
   {
     auto *data = (rfTriangleData*)(RF_ADDRESS(trihit, sizeof(rfTri)));
 
-    ray.t = hitdist - T_EPSILON;
+    ray.t = hitdist;
     ray.Ng[0] = trihit->plane[0];
     ray.Ng[1] = trihit->plane[1];
     ray.Ng[2] = trihit->plane[2];
