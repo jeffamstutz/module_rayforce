@@ -28,8 +28,6 @@
 #include "common/Ray.h"
 using namespace ospray;
 
-#define T_EPSILON 0.f//1e-6
-
 //#define DEBUG_OUTPUT
 
 // Macros from path.h /////////////////////////////////////////////////////////
@@ -97,6 +95,16 @@ void rf_elem_prepare_axis(vec3f &vectinv, vec3i &edgeindex, Ray &ray)
 }
 #endif
 
+// Redefinition of triangle structure /////////////////////////////////////////
+
+struct RF_ALIGN16 rfCppTri
+{
+  /* 48 bytes */
+  vec3fa plane;
+  vec3fa edpu;
+  vec3fa edpv;
+};
+
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "rfgraph/resolve.h"
@@ -106,9 +114,9 @@ void cppTraceRay(void *graph, RTCRay &_ray)
   Ray &ray = reinterpret_cast<Ray&>(_ray);
   rff hitdist = 0.f;
   rff uv[2];
-  rfTri *trihit = nullptr;
+  rfCppTri *trihit = nullptr;
 
-  void *root = resolve(graph, (const rff *)&ray.org);
+  void *root = resolve(graph, _ray.org);
 
   auto src = ray.org + ray.t0 * ray.dir;
 
@@ -163,19 +171,20 @@ void cppTraceRay(void *graph, RTCRay &_ray)
       do
       {
         auto *tri =
-            (rfTri *)RF_ADDRESS(root, (rfssize)(*trilist++) << RF_LINKSHIFT);
+            (rfCppTri *)RF_ADDRESS(root, (rfssize)(*trilist++) << RF_LINKSHIFT);
 
         // Intersect the triangle, with no back/front face culling
-        auto dstdist = rfMathPlanePoint(tri->plane, dst);
-        auto srcdist = rfMathPlanePoint(tri->plane, src);
+        auto dstdist = ospcommon::dot(tri->plane, dst) + tri->plane.w;
+        auto srcdist = ospcommon::dot(tri->plane, src) + tri->plane.w;
         if(dstdist * srcdist > (rff)0.0)
           continue;
         auto f = srcdist / (srcdist - dstdist);
         auto vray = src + f * (dst - src);
-        uv[0] = rfMathVectorDotProduct(&tri->edpu[0], vray) + tri->edpu[3];
+
+        uv[0] = ospcommon::dot(tri->edpu, vray) + tri->edpu.w;
         if(!(uv[0] >= 0.0f) || (uv[0] > 1.0f))
           continue;
-        uv[1] = rfMathVectorDotProduct(&tri->edpv[0], vray) + tri->edpv[3];
+        uv[1] = ospcommon::dot(tri->edpv, vray) + tri->edpv.w;
         if((uv[1] < 0.0f) || ((uv[0] + uv[1]) > 1.0f))
           continue;
         dst = vray;
@@ -228,7 +237,7 @@ void cppTraceRay(void *graph, RTCRay &_ray)
     // We have to do some kind of disambiguation of the neighbors to figure
     // out what sector we need to traverse to next.
     /* Neighbor is node */
-    src += mindist * ray.dir;
+    //src += (mindist - 1e-3f) * ray.dir;
     root = RF_ADDRESS(root,
                       (rfssize)RF_SECTOR(root)->link[nredge] << RF_LINKSHIFT);
     // [/info]
@@ -274,16 +283,13 @@ void cppTraceRay(void *graph, RTCRay &_ray)
   {
     auto *data = (rfTriangleData*)(RF_ADDRESS(trihit, sizeof(rfTri)));
 
-    ray.t = hitdist;
-    ray.Ng[0] = trihit->plane[0];
-    ray.Ng[1] = trihit->plane[1];
-    ray.Ng[2] = trihit->plane[2];
+    ray.t  = hitdist;
+    ray.Ng = trihit->plane;
 
     ray.u = uv[0];
     ray.v = uv[1];
 
     ray.geomID = data->geomID;
-    ray.instID = data->geomID;
     ray.primID = data->primID;
   }
 }
