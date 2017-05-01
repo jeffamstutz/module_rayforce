@@ -16,7 +16,7 @@
 
 option(OSPRAY_MODULE_RAYFORCE "Build 'RAYF' (rayforce model viewer)" ON)
 
-if (OSPRAY_MODULE_RAYFORCE AND NOT THIS_IS_MIC)
+if (OSPRAY_MODULE_RAYFORCE)
 
   if (DEFINED OSPRAY_MODULE_CPP)
     if (OSPRAY_MODULE_CPP)
@@ -51,7 +51,7 @@ if (OSPRAY_MODULE_RAYFORCE AND NOT THIS_IS_MIC)
     ospray
     ospray_commandline
     ospray_minisg
-    ospray_glut3d
+    ospray_imgui3d
     ${OPENGL_LIBRARIES}
     ${GLUT_LIBRARIES}
   )

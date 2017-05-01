@@ -14,10 +14,12 @@
 // limitations under the License.                                           //
 // ======================================================================== //
 
-#include "widgets/OSPGlutViewer.h"
+#include "exampleViewer/widgets/imguiViewer.h"
 #include "commandline/Utility.h"
 #include "commandline/SceneParser/trianglemesh/TriangleMeshSceneParser.h"
 #include "ospray/ospray.h"
+
+using namespace commandline;
 
 class RayforceSceneParser : public TriangleMeshSceneParser
 {
@@ -30,7 +32,7 @@ public:
 int main(int ac, const char **av)
 {
   ospInit(&ac,av);
-  ospray::glut3D::initGLUT(&ac,av);
+  ospray::imgui3D::init(&ac,av);
 
   ospLoadModule("rayforce");
   auto ospObjs = parseCommandLine<DefaultRendererParser,
@@ -45,8 +47,8 @@ int main(int ac, const char **av)
 
   std::tie(bbox, model, renderer, camera) = ospObjs;
 
-  ospray::OSPGlutViewer window(bbox, model, renderer, camera);
+  ospray::ImGuiViewer window(bbox, model, renderer, camera);
   window.create("ospRayforceViewer: OSPRay Rayforce Viewer");
 
-  ospray::glut3D::runGLUT();
+  ospray::imgui3D::run();
 }
