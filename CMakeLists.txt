@@ -14,7 +14,7 @@
 ## limitations under the License.                                           ##
 ## ======================================================================== ##
 
-option(OSPRAY_MODULE_RAYFORCE "Build 'RAYF' (rayforce model viewer)" ON)
+option(OSPRAY_MODULE_RAYFORCE "Build 'RAYF' (rayforce model viewer)" OFF)
 
 if (OSPRAY_MODULE_RAYFORCE AND NOT THIS_IS_MIC)
 
