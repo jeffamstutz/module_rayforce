@@ -125,7 +125,6 @@ static void traceRay(const RayforceGraph &graph, RTCRay &_ray)
     _ray.Ng[1]  = rayData.Ng[1];
     _ray.Ng[2]  = rayData.Ng[2];
     _ray.geomID = rayData.geomID;
-    _ray.instID = rayData.geomID;
     _ray.primID = rayData.primID;
     _ray.u      = rayData.u;
     _ray.v      = rayData.v;

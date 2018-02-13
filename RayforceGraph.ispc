@@ -25,7 +25,6 @@
 struct RayforceGraph
 {
   uniform Geometry  geometry; //!< inherited geometry fields
-  uniform int32     numTriangles; //!< number of triangles
   uniform int32     idxSize; //!< stride of triangle indices, in int32 elements
   uniform int32     vtxSize; //!< stride of vertex positions, in float32 elements
   uniform int32     norSize; //!< stride of normals, in float32 elements
@@ -35,12 +34,11 @@ struct RayforceGraph
   uniform vec4f    *color;  //!< mesh's vertex color array
   uniform vec2f    *texcoord; //!< mesh's texture coordinate array
   uniform uint32   *prim_materialID;     // per-primitive material ID
-  uniform Material *uniform *materialList;  // list of materials, if multiple materials are assigned to this mesh.
   uniform int32     geom_materialID;     // per-object material ID
 };
 
 static void RayforceGraph_postIntersect(uniform Geometry *uniform _self,
-                                        uniform Model *uniform model,
+                                        uniform Model    *uniform model,
                                         varying DifferentialGeometry &dg,
                                         const varying Ray &ray,
                                         uniform int64 flags)
@@ -215,7 +213,6 @@ void RayforceGraph_Constructor(uniform RayforceGraph *uniform mesh,
   mesh->geometry.getAreas = RayforceGraph_getAreas;
   mesh->geometry.sampleArea = RayforceGraph_sampleArea;
   mesh->geometry.numPrimitives = numTriangles;
-  mesh->numTriangles = numTriangles;
   mesh->index        = index;
   mesh->vertex       = vertex;
   mesh->normal       = normal;
