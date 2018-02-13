@@ -39,7 +39,8 @@ if (OSPRAY_MODULE_RAYFORCE AND NOT THIS_IS_MIC)
     rfStruct.h
     LINK
     ospray
-    ${RAYFORCE_LIBRARIES}
+    Rayforce::RF
+    Rayforce::rfut
   )
 
   set_source_files_properties(rfPipeline.c
@@ -48,10 +49,8 @@ if (OSPRAY_MODULE_RAYFORCE AND NOT THIS_IS_MIC)
   ospray_create_application(ospRayforceViewer
     rayforceViewer.cpp
     LINK
-    ospray
-    ospray_commandline
-    ospray_minisg
-    ospray_glut3d
+    ospray_app
+    ospray_imgui3d_sg
     ${OPENGL_LIBRARIES}
     ${GLUT_LIBRARIES}
   )

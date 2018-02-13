@@ -1,5 +1,5 @@
-﻿// ======================================================================== //
-// Copyright 2009-2015 Intel Corporation                                    //
+// ======================================================================== //
+// Copyright 2009-2018 Intel Corporation                                    //
 //                                                                          //
 // Licensed under the Apache License, Version 2.0 (the "License");          //
 // you may not use this file except in compliance with the License.         //
@@ -14,39 +14,70 @@
 // limitations under the License.                                           //
 // ======================================================================== //
 
-#include "widgets/OSPGlutViewer.h"
-#include "commandline/Utility.h"
-#include "commandline/SceneParser/trianglemesh/TriangleMeshSceneParser.h"
-#include "ospray/ospray.h"
+#include "common/sg/SceneGraph.h"
+#include "sg/geometry/TriangleMesh.h"
 
-class RayforceSceneParser : public TriangleMeshSceneParser
-{
-public:
-  RayforceSceneParser(ospray::cpp::Renderer renderer,
-                      std::string geometryType = "rayforce") :
-    TriangleMeshSceneParser(renderer, geometryType) {}
-};
+#include "ospapp/OSPApp.h"
+#include "apps/exampleViewer/widgets/imguiViewer.h"
+
+namespace ospray {
+  namespace app {
+
+    class OSPRayforceViewer : public OSPApp
+    {
+      void render(const std::shared_ptr<ospray::sg::Node> &) override;
+      int parseCommandLine(int &ac, const char **&av) override;
+
+      bool fullscreen = false;
+      float motionSpeed = -1.f;
+      std::string initialTextForNodeSearch;
+    };
+
+    void OSPRayforceViewer::render(
+        const std::shared_ptr<ospray::sg::Node> &renderer)
+    {
+      ospray::ImGuiViewer window(renderer);
+
+      window.create("OSPRay Rayforce Viewer App",
+                    fullscreen, vec2i(width, height));
+
+      if (motionSpeed > 0.f)
+        window.setMotionSpeed(motionSpeed);
+
+      if (!initialTextForNodeSearch.empty())
+        window.setInitialSearchBoxText(initialTextForNodeSearch);
+
+      imgui3D::run();
+    }
+
+    int OSPRayforceViewer::parseCommandLine(int &ac, const char **&av)
+    {
+      for (int i = 1; i < ac; i++) {
+        const std::string arg = av[i];
+        if (arg == "--fullscreen") {
+          fullscreen = true;
+          removeArgs(ac, av, i, 1);
+          --i;
+        } else if (arg == "--motionSpeed") {
+          motionSpeed = atof(av[i + 1]);
+          removeArgs(ac, av, i, 2);
+          --i;
+        } else if (arg == "--searchText") {
+          initialTextForNodeSearch = av[i + 1];
+          removeArgs(ac, av, i, 2);
+          --i;
+        }
+      }
+      return 0;
+    }
+
+  } // ::ospray::app
+} // ::ospray
 
 int main(int ac, const char **av)
 {
-  ospInit(&ac,av);
-  ospray::glut3D::initGLUT(&ac,av);
-
   ospLoadModule("rayforce");
-  auto ospObjs = parseCommandLine<DefaultRendererParser,
-                                  DefaultCameraParser,
-                                  RayforceSceneParser,
-                                  DefaultLightsParser>(ac, av);
-
-  std::deque<ospcommon::box3f>   bbox;
-  std::deque<ospray::cpp::Model> model;
-  ospray::cpp::Renderer renderer;
-  ospray::cpp::Camera   camera;
-
-  std::tie(bbox, model, renderer, camera) = ospObjs;
-
-  ospray::OSPGlutViewer window(bbox, model, renderer, camera);
-  window.create("ospRayforceViewer: OSPRay Rayforce Viewer");
-
-  ospray::glut3D::runGLUT();
+  ospray::sg::TriangleMesh::geometry_type = "rayforce";
+  ospray::app::OSPRayforceViewer ospApp;
+  return ospApp.main(ac, av);
 }

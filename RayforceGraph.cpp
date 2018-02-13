@@ -204,7 +204,7 @@ RayforceGraph::RayforceGraph()
   rf_device  = new rfut::Device<Target::System>(*rf_context);
   rf_scene   = new rfut::Scene<Target::System>(*rf_context, *rf_device);
   rf_object  = new rfut::Object(*rf_scene, CullMode::None);
-  rf_model   = new rfut::Model(*rf_scene, ModelType::Triangles, 224, 224);
+  rf_model   = new rfut::Model(*rf_scene, ModelType::Triangles);
 }
 
 RayforceGraph::~RayforceGraph()
@@ -326,7 +326,7 @@ void RayforceGraph::finalize(Model *model)
     delete [] indices;
     delete [] tridata;
   } else {
-    rf_model->setData(loadGraphFile);
+    rf_model->loadCacheFile(loadGraphFile);
   }
 
   rf_object->attach(*rf_model);

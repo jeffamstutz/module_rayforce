@@ -148,7 +148,7 @@ void RayforceGraph_Constructor(uniform RayforceGraph *uniform mesh,
   Geometry_Constructor(&mesh->geometry,cppEquivalent,
                        RayforceGraph_postIntersect,
                        model,geomID,
-                       material);
+                       materialList);
   mesh->numTriangles = numTriangles;
   mesh->index        = index;
   mesh->vertex       = vertex;
