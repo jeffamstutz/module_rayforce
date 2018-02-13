@@ -16,18 +16,9 @@
 
 option(OSPRAY_MODULE_RAYFORCE "Build 'RAYF' (rayforce model viewer)" OFF)
 
-if (OSPRAY_MODULE_RAYFORCE AND NOT THIS_IS_MIC)
-
-  if (DEFINED OSPRAY_MODULE_CPP)
-    if (OSPRAY_MODULE_CPP)
-      add_definitions(-DUSE_CPP_INTERFACE)
-      add_definitions(-DSTREAM_SIZE=${OSPRAY_MODULE_CPP_STREAM_SIZE})
-    endif()
-  endif()
+if (OSPRAY_MODULE_RAYFORCE)
 
   find_package(Rayforce REQUIRED)
-
-  include_directories(${RAYFORCE_INCLUDE_DIR})
 
   include_directories_ispc(${CMAKE_CURRENT_SOURCE_DIR})
 
