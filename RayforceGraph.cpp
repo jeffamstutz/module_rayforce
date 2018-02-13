@@ -31,10 +31,6 @@ extern rfPipeline rfRays;
 
 namespace ospray {
 
-#ifdef USE_CPP_INTERFACE
-  namespace cpp_renderer {
-#endif
-
 template<typename T>
 void getRay(const T& rays, RTCRay &ray, int i)
 {
@@ -154,7 +150,7 @@ static void rayforceIntersectFuncN(const int*                 valid,
   UNUSED(context);
   const RayforceGraph& graph = graphs[item];
 
-  for (int i = 0; i < N; ++i) {
+  for (size_t i = 0; i < N; ++i) {
     if (valid[i]) {
       RTCRay ray;
       getRay(*rays, ray, i);
@@ -197,7 +193,6 @@ static void rayforceIntersectFuncNt(const int*           mask,
 RayforceGraph::RayforceGraph()
   : eMesh(RTC_INVALID_GEOMETRY_ID)
 {
-  this->ispcMaterialPtrs = nullptr;
   this->ispcEquivalent = ispc::RayforceGraph_create(this);
 
   rf_context = new rfut::Context;
@@ -225,6 +220,8 @@ void RayforceGraph::finalize(Model *model)
 {
   Assert(model && "invalid model pointer");
 
+  Geometry::finalize(model);
+
   RTCScene embreeSceneHandle = model->embreeSceneHandle;
 
   vertexData = getParamData("vertex",getParamData("position"));
@@ -233,7 +230,6 @@ void RayforceGraph::finalize(Model *model)
   texcoordData = getParamData("vertex.texcoord",getParamData("texcoord"));
   indexData  = getParamData("index",getParamData("triangle"));
   prim_materialIDData = getParamData("prim.materialID");
-  materialListData = getParamData("materialList");
   geom_materialID = getParam1i("geom.materialID",-1);
 
   std::string saveGraphFile = getParamString("saveGraphFile", "");
@@ -246,20 +242,6 @@ void RayforceGraph::finalize(Model *model)
   this->texcoord = texcoordData ? (vec2f*)texcoordData->data : nullptr;
   this->prim_materialID =
       prim_materialIDData ? (uint32*)prim_materialIDData->data : nullptr;
-  this->materialList =
-      materialListData ? (ospray::Material**)materialListData->data : nullptr;
-
-#if 0
-  if (materialList && !ispcMaterialPtrs) {
-    const int num_materials = materialListData->numItems;
-    ispcMaterialPtrs = new void*[num_materials];
-    for (int i = 0; i < num_materials; i++) {
-      assert(this->materialList[i] != nullptr &&
-             "Materials in list should never be nullptr");
-      this->ispcMaterialPtrs[i] = this->materialList[i]->getIE();
-    }
-  }
-#endif
 
   size_t numVerts = -1;
   switch (indexData->type) {
@@ -410,83 +392,9 @@ void RayforceGraph::finalize(Model *model)
                           (ispc::vec4f*)color,
                           (ispc::vec2f*)texcoord,
                           geom_materialID,
-                          getMaterial()?getMaterial()->getIE() : nullptr,
-                          ispcMaterialPtrs,
+                          materialList ? ispcMaterialPtrs.data() : nullptr,
                           (uint32*)prim_materialID);
 }
-
-#ifdef USE_CPP_INTERFACE
-void RayforceGraph::postIntersect(DifferentialGeometry &dg,
-                                  const Ray &ray,
-                                  int flags) const
-{
-  dg.Ng = dg.Ns = ray.Ng;
-  const int base = idxSize * ray.primID;
-  const vec3i idx = vec3i{index[base+0], index[base+1], index[base+2]};
-
-  if ((flags & DG_NS) && normal) {
-    const vec3f &n0 = normal[idx.x * norSize];
-    const vec3f &n1 = normal[idx.y * norSize];
-    const vec3f &n2 = normal[idx.z * norSize];
-    dg.Ns = (1.f-ray.u-ray.v) * n0 + (ray.u * n1) + (ray.v * n2);
-  }
-
-  if ((flags & DG_COLOR) && color) {
-    dg.color = (1.f-ray.u-ray.v) * (color[idx.x])
-               + ray.u * (color[idx.y])
-               + ray.v * (color[idx.z]);
-  }
-
-  if (flags & DG_TEXCOORD && texcoord) {
-    //calculate texture coordinate using barycentric coordinates
-    dg.st = (1.f-ray.u-ray.v) * (texcoord[idx.x])
-            + ray.u * (texcoord[idx.y])
-            + ray.v * (texcoord[idx.z]);
-  } else {
-    dg.st = vec2f{0.0f};
-  }
-
-  if (flags & DG_TANGENTS) {
-    bool fallback = true;
-    if (texcoord) {
-      const vec2f dst02 = texcoord[idx.x] - texcoord[idx.z];
-      const vec2f dst12 = texcoord[idx.y] - texcoord[idx.z];
-      const float det = dst02.x * dst12.y - dst02.y * dst12.x;
-
-      if (det != 0.f) {
-        const float invDet = rcp(det);
-        const vec3f &v0 = vertex[idx.x * vtxSize];
-        const vec3f &v1 = vertex[idx.y * vtxSize];
-        const vec3f &v2 = vertex[idx.z * vtxSize];
-        const vec3f dp02 = v0 - v2;
-        const vec3f dp12 = v1 - v2;
-        dg.dPds = (dst12.y * dp02 - dst02.y * dp12) * invDet;
-        dg.dPdt = (dst02.x * dp12 - dst12.x * dp02) * invDet;
-        fallback = false;
-      }
-    }
-    if (fallback) {
-      linear3f f = frame(dg.Ng);
-      dg.dPds = f.vx;
-      dg.dPdt = f.vy;
-    }
-  }
-
-  if (flags & DG_MATERIALID) {
-    if (prim_materialID) {
-      dg.materialID = prim_materialID[ray.primID];
-    }
-    else {
-      dg.materialID = geom_materialID;
-    }
-
-    if(materialList) {
-      Material *myMat = materialList[dg.materialID < 0 ? 0 : dg.materialID];
-      dg.material = myMat;
-    }
-  }
-}
-#endif
 
 OSP_REGISTER_GEOMETRY(RayforceGraph, rfgraph);
 OSP_REGISTER_GEOMETRY(RayforceGraph, rayforce);
@@ -495,9 +403,5 @@ extern "C" void ospray_init_module_rayforce()
 {
   printf("Loaded plugin 'rayforce' ...\n");
 }
-
-#ifdef USE_CPP_INTERFACE
-} // ::ospray::cpp_renderer
-#endif
 
 } // ::ospray

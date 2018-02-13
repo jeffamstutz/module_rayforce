@@ -20,6 +20,8 @@
 #include "geometry/Geometry.ih"
 #include "math/LinearSpace.ih"
 
+#include "common/safe_gather.ih"
+
 struct RayforceGraph
 {
   uniform Geometry  geometry; //!< inherited geometry fields
@@ -46,6 +48,7 @@ static void RayforceGraph_postIntersect(uniform Geometry *uniform _self,
   uniform RayforceGraph *uniform self = (uniform RayforceGraph *uniform)_self;
   dg.Ng = dg.Ns = ray.Ng;
 
+#if 0
   const varying int indexBase = self->idxSize * ray.primID;
   const varying vec3i index = make_vec3i(self->index[indexBase+0],
                                          self->index[indexBase+1],
@@ -120,12 +123,150 @@ static void RayforceGraph_postIntersect(uniform Geometry *uniform _self,
     else {
       dg.materialID = self->geom_materialID;
     }
+  }
+#else
+  const uniform bool huge_mesh = false;
+  const vec3i index = gather_vec3i(huge_mesh, self->index, self->idxSize, ray.primID);
+  vec3f bary = make_vec3f(1.0f - ray.u - ray.v, ray.u, ray.v);
 
-    if( self->materialList) {
-      dg.material = self->materialList[dg.materialID < 0 ? 0 : dg.materialID];
+  if (flags & DG_NS && self->normal) {
+    const uniform float *uniform normal = self->normal;
+    const uniform int32 norSize = self->norSize;
+    const vec3f a = gather_vec3f(huge_mesh, normal, norSize, index.x);
+    const vec3f b = gather_vec3f(huge_mesh, normal, norSize, index.y);
+    const vec3f c = gather_vec3f(huge_mesh, normal, norSize, index.z);
+    dg.Ns = interpolate(bary, a, b, c);
+  }
+
+  if (flags & DG_COLOR && self->color) {
+    const uniform vec4f *uniform color = self->color;
+    const vec4f a = gather_vec4f(huge_mesh, color, index.x);
+    const vec4f b = gather_vec4f(huge_mesh, color, index.y);
+    const vec4f c = gather_vec4f(huge_mesh, color, index.z);
+    dg.color = interpolate(bary, a, b, c);
+#if 0
+    if (!self->has_alpha)
+      dg.color.w = 1.f;
+#endif
+  }
+
+  if (flags & DG_TEXCOORD && self->texcoord) {
+    const uniform vec2f *uniform texcoord = self->texcoord;
+    const vec2f a = gather_vec2f(huge_mesh, texcoord, index.x);
+    const vec2f b = gather_vec2f(huge_mesh, texcoord, index.y);
+    const vec2f c = gather_vec2f(huge_mesh, texcoord, index.z);
+    dg.st = interpolate(bary, a, b, c);
+  } else
+    dg.st = make_vec2f(0.0f, 0.0f);
+
+  if (flags & DG_TANGENTS) {
+    uniform bool fallback = true;
+    if (self->texcoord) {
+      const uniform vec2f *uniform texcoord = self->texcoord;
+      const vec2f a = gather_vec2f(huge_mesh, texcoord, index.x);
+      const vec2f b = gather_vec2f(huge_mesh, texcoord, index.y);
+      const vec2f c = gather_vec2f(huge_mesh, texcoord, index.z);
+      const vec2f dst02 = a - c;
+      const vec2f dst12 = b - c;
+      const float det = dst02.x * dst12.y - dst02.y * dst12.x;
+
+      if (det != 0.f) {
+        const float invDet = rcp(det);
+        const uniform float *uniform vertex = self->vertex;
+        const uniform int32 vtxSize = self->vtxSize;
+        const vec3f a = gather_vec3f(huge_mesh, vertex, vtxSize, index.x);
+        const vec3f b = gather_vec3f(huge_mesh, vertex, vtxSize, index.y);
+        const vec3f c = gather_vec3f(huge_mesh, vertex, vtxSize, index.z);
+        const vec3f dp02 = a - c;
+        const vec3f dp12 = b - c;
+        dg.dPds = (dst12.y * dp02 - dst02.y * dp12) * invDet;
+        dg.dPdt = (dst02.x * dp12 - dst12.x * dp02) * invDet;
+        fallback = false;
+      }
+    }
+    if (fallback) {
+      linear3f f = frame(dg.Ng);
+      dg.dPds = f.vx;
+      dg.dPdt = f.vy;
     }
   }
+
+  if (flags & DG_MATERIALID) {
+    if (self->prim_materialID) {
+      dg.materialID = self->prim_materialID[ray.primID];
+    }
+    // TODO: gather material ID from index array if indexSize==4
+    else {
+      dg.materialID = self->geom_materialID;
+    }
+  }
+#endif
 }
+
+SampleAreaRes RayforceGraph_sampleArea(
+    const Geometry *uniform const _self
+    , const int32 primID
+    , const uniform affine3f &xfm
+    , const uniform affine3f &
+    , const vec2f& s
+    )
+{
+  const RayforceGraph *const uniform self = (const RayforceGraph *uniform)_self;
+  SampleAreaRes res;
+
+  // gather vertices
+  const uniform bool huge_mesh = false;//self->huge_mesh;
+  const vec3i index = gather_vec3i(huge_mesh, self->index, self->idxSize, primID);
+  const uniform float *uniform vertex = self->vertex;
+  const uniform int32 vtxSize = self->vtxSize;
+  const vec3f a = gather_vec3f(huge_mesh, vertex, vtxSize, index.x);
+  const vec3f b = gather_vec3f(huge_mesh, vertex, vtxSize, index.y);
+  const vec3f c = gather_vec3f(huge_mesh, vertex, vtxSize, index.z);
+
+  const vec3f localPos = uniformSampleTriangle(a, b, c, s);
+  res.pos = xfmPoint(xfm, localPos);
+
+  const vec3f e1 = a-c;
+  const vec3f e2 = b-c;
+  res.normal = normalize(cross(xfmVector(xfm, e1), xfmVector(xfm, e2)));
+
+  return res;
+}
+
+int32 RayforceGraph_getMaterialID(
+    const Geometry *uniform const _self
+    , const int32 primID
+    )
+{
+  const RayforceGraph *const uniform self = (const RayforceGraph *uniform)_self;
+  return self->prim_materialID ? self->prim_materialID[primID] : self->geom_materialID;
+}
+
+void RayforceGraph_getAreas(
+    const Geometry *const uniform _self
+    , const int32 *const uniform primIDs
+    , const uniform int32 numPrims
+    , const uniform affine3f &xfm
+    , float *const uniform areas
+    )
+{
+  const RayforceGraph *const uniform self = (const RayforceGraph *uniform)_self;
+
+  const uniform int32 idxSize = self->idxSize;
+  const float *const uniform vertex = self->vertex;
+  const uniform int64 vtxSize = self->vtxSize;
+  // TODO vectorize this loop, with foreach or ProgramCount & ProgramIndex
+  for (uniform int32 i = 0; i < numPrims; i++) {
+    int *uniform index = self->index + primIDs[i] * idxSize;
+    const uniform vec3f a = *((vec3f*)(vertex + vtxSize * *index));
+    const uniform vec3f b = *((vec3f*)(vertex + vtxSize * *(index+1)));
+    const uniform vec3f c = *((vec3f*)(vertex + vtxSize * *(index+2)));
+    const uniform vec3f e1 = xfmVector(xfm, a-c);
+    const uniform vec3f e2 = xfmVector(xfm, b-c);
+    areas[i] = 0.5f * length(cross(e1, e2));
+  }
+}
+
 
 void RayforceGraph_Constructor(uniform RayforceGraph *uniform mesh,
                                void *uniform cppEquivalent,
@@ -141,7 +282,6 @@ void RayforceGraph_Constructor(uniform RayforceGraph *uniform mesh,
                                uniform vec4f  *uniform color,
                                uniform vec2f  *uniform texcoord,
                                uniform int32   geom_materialID,
-                               uniform Material *uniform material,
                                uniform Material *uniform *uniform materialList,
                                uniform uint32 *uniform prim_materialID)
 {
@@ -149,6 +289,10 @@ void RayforceGraph_Constructor(uniform RayforceGraph *uniform mesh,
                        RayforceGraph_postIntersect,
                        model,geomID,
                        materialList);
+  mesh->geometry.getMaterialID = RayforceGraph_getMaterialID;
+  mesh->geometry.getAreas = RayforceGraph_getAreas;
+  mesh->geometry.sampleArea = RayforceGraph_sampleArea;
+  mesh->geometry.numPrimitives = numTriangles;
   mesh->numTriangles = numTriangles;
   mesh->index        = index;
   mesh->vertex       = vertex;
@@ -159,7 +303,6 @@ void RayforceGraph_Constructor(uniform RayforceGraph *uniform mesh,
   mesh->vtxSize      = vtxSize;
   mesh->norSize      = norSize;
   mesh->prim_materialID = prim_materialID;
-  mesh->materialList = materialList;
   mesh->geom_materialID = geom_materialID;
 }
 
@@ -167,7 +310,7 @@ export void *uniform RayforceGraph_create(void *uniform cppEquivalent)
 {
   uniform RayforceGraph *uniform geom = uniform new uniform RayforceGraph;
   RayforceGraph_Constructor(geom, cppEquivalent, NULL, 0, 0, 0, 0, 0, NULL,
-                            NULL, NULL, NULL, NULL, -1, NULL, NULL, NULL);
+                            NULL, NULL, NULL, NULL, -1, NULL, NULL);
   return geom;
 }
 
@@ -184,7 +327,6 @@ export void *uniform RayforceGraph_set(void *uniform _mesh,
                                        uniform vec4f  *uniform color,
                                        uniform vec2f  *uniform texcoord,
                                        uniform int32   geom_materialID,
-                                       void *uniform material,
                                        void *uniform _materialList,
                                        uniform uint32 *uniform prim_materialID)
 {
@@ -204,7 +346,6 @@ export void *uniform RayforceGraph_set(void *uniform _mesh,
                             color,
                             texcoord,
                             geom_materialID,
-                            (Material*uniform)material,
                             (Material*uniform*uniform)materialList,
                             prim_materialID);
 }

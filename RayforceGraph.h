@@ -64,7 +64,6 @@ namespace ospray {
     const vec4f  *color;  //!< mesh's vertex color array
     const vec2f  *texcoord; //!< mesh's vertex texcoord array
     const uint32 *prim_materialID; //!< per-primitive material ID
-    Material **materialList; //!< per-primitive material list
     int geom_materialID;
 
     Ref<Data> indexData;  /*!< triangle indices (A,B,C,materialID) */
@@ -85,8 +84,6 @@ namespace ospray {
     rfut::Scene<Target::System>*    rf_scene;
     rfut::Device<Target::System>*   rf_device;
     rfut::TraceFcn<Target::System>* rf_traceFcn;
-
-    void** ispcMaterialPtrs; /*!< pointers to ISPC equivalent materials */
 
 #ifdef USE_CPP_INTERFACE
     // ospray::cpp_renderer::Geometry interface ///////////////////////////////
