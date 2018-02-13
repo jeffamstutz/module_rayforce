@@ -16,12 +16,11 @@
 
 #pragma once
 
-#ifdef USE_CPP_INTERFACE
-# include "../cpp_renderer/geometry/Geometry.h"
-#else
-# include "geometry/Geometry.h"
-#endif
+#include "geometry/Geometry.h"
 #include "ospray/common/Data.h"
+
+// embree
+#include "embree2/rtcore.h"
 
 #include <rfut/CullMode.h>
 #include <rfut/ModelType.h>
@@ -37,19 +36,10 @@
 
 namespace ospray {
 
-#ifdef USE_CPP_INTERFACE
-  namespace cpp_renderer {
-#endif
-
-#ifdef USE_CPP_INTERFACE
-  struct RayforceGraph : public cpp_renderer::Geometry
-#else
   struct RayforceGraph : public Geometry
-#endif
   {
-
     RayforceGraph();
-    ~RayforceGraph();
+    ~RayforceGraph() override;
     std::string toString() const override;
     void finalize(Model *model) override;
 
@@ -58,12 +48,12 @@ namespace ospray {
     size_t vtxSize{0};
     size_t norSize{0};
 
-    const int    *index;  //!< mesh's triangle index array
-    const float  *vertex; //!< mesh's vertex array
-    const float  *normal; //!< mesh's vertex normal array
-    const vec4f  *color;  //!< mesh's vertex color array
-    const vec2f  *texcoord; //!< mesh's vertex texcoord array
-    const uint32 *prim_materialID; //!< per-primitive material ID
+    int    *index;  //!< mesh's triangle index array
+    float  *vertex; //!< mesh's vertex array
+    float  *normal; //!< mesh's vertex normal array
+    vec4f  *color;  //!< mesh's vertex color array
+    vec2f  *texcoord; //!< mesh's vertex texcoord array
+    uint32 *prim_materialID; //!< per-primitive material ID
     int geom_materialID;
 
     Ref<Data> indexData;  /*!< triangle indices (A,B,C,materialID) */
@@ -72,8 +62,8 @@ namespace ospray {
     Ref<Data> colorData;  /*!< vertex color array (vec3fa) */
     Ref<Data> texcoordData; /*!< vertex texcoord array (vec2f) */
     Ref<Data> prim_materialIDData;  /*!< data array for per-prim material ID (uint32) */
-    Ref<Data> materialListData; /*!< data array for per-prim materials */
-    uint32    eMesh;   /*!< embree triangle mesh handle */
+
+    uint32 eMesh{RTC_INVALID_GEOMETRY_ID};   /*!< embree triangle mesh handle */
 
     //! Target-independent data
     rfut::Context* rf_context;
@@ -84,18 +74,6 @@ namespace ospray {
     rfut::Scene<Target::System>*    rf_scene;
     rfut::Device<Target::System>*   rf_device;
     rfut::TraceFcn<Target::System>* rf_traceFcn;
-
-#ifdef USE_CPP_INTERFACE
-    // ospray::cpp_renderer::Geometry interface ///////////////////////////////
-
-    void postIntersect(DifferentialGeometry &dg,
-                       const Ray &ray,
-                       int flags) const override;
-#endif
   };
-
-#ifdef USE_CPP_INTERFACE
-  } // ::ospray::cpp_renderer
-#endif
 
 } // ::ospray

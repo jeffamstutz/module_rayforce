@@ -48,7 +48,6 @@ static void RayforceGraph_postIntersect(uniform Geometry *uniform _self,
   uniform RayforceGraph *uniform self = (uniform RayforceGraph *uniform)_self;
   dg.Ng = dg.Ns = ray.Ng;
 
-#if 0
   const varying int indexBase = self->idxSize * ray.primID;
   const varying vec3i index = make_vec3i(self->index[indexBase+0],
                                          self->index[indexBase+1],
@@ -124,83 +123,6 @@ static void RayforceGraph_postIntersect(uniform Geometry *uniform _self,
       dg.materialID = self->geom_materialID;
     }
   }
-#else
-  const uniform bool huge_mesh = false;
-  const vec3i index = gather_vec3i(huge_mesh, self->index, self->idxSize, ray.primID);
-  vec3f bary = make_vec3f(1.0f - ray.u - ray.v, ray.u, ray.v);
-
-  if (flags & DG_NS && self->normal) {
-    const uniform float *uniform normal = self->normal;
-    const uniform int32 norSize = self->norSize;
-    const vec3f a = gather_vec3f(huge_mesh, normal, norSize, index.x);
-    const vec3f b = gather_vec3f(huge_mesh, normal, norSize, index.y);
-    const vec3f c = gather_vec3f(huge_mesh, normal, norSize, index.z);
-    dg.Ns = interpolate(bary, a, b, c);
-  }
-
-  if (flags & DG_COLOR && self->color) {
-    const uniform vec4f *uniform color = self->color;
-    const vec4f a = gather_vec4f(huge_mesh, color, index.x);
-    const vec4f b = gather_vec4f(huge_mesh, color, index.y);
-    const vec4f c = gather_vec4f(huge_mesh, color, index.z);
-    dg.color = interpolate(bary, a, b, c);
-#if 0
-    if (!self->has_alpha)
-      dg.color.w = 1.f;
-#endif
-  }
-
-  if (flags & DG_TEXCOORD && self->texcoord) {
-    const uniform vec2f *uniform texcoord = self->texcoord;
-    const vec2f a = gather_vec2f(huge_mesh, texcoord, index.x);
-    const vec2f b = gather_vec2f(huge_mesh, texcoord, index.y);
-    const vec2f c = gather_vec2f(huge_mesh, texcoord, index.z);
-    dg.st = interpolate(bary, a, b, c);
-  } else
-    dg.st = make_vec2f(0.0f, 0.0f);
-
-  if (flags & DG_TANGENTS) {
-    uniform bool fallback = true;
-    if (self->texcoord) {
-      const uniform vec2f *uniform texcoord = self->texcoord;
-      const vec2f a = gather_vec2f(huge_mesh, texcoord, index.x);
-      const vec2f b = gather_vec2f(huge_mesh, texcoord, index.y);
-      const vec2f c = gather_vec2f(huge_mesh, texcoord, index.z);
-      const vec2f dst02 = a - c;
-      const vec2f dst12 = b - c;
-      const float det = dst02.x * dst12.y - dst02.y * dst12.x;
-
-      if (det != 0.f) {
-        const float invDet = rcp(det);
-        const uniform float *uniform vertex = self->vertex;
-        const uniform int32 vtxSize = self->vtxSize;
-        const vec3f a = gather_vec3f(huge_mesh, vertex, vtxSize, index.x);
-        const vec3f b = gather_vec3f(huge_mesh, vertex, vtxSize, index.y);
-        const vec3f c = gather_vec3f(huge_mesh, vertex, vtxSize, index.z);
-        const vec3f dp02 = a - c;
-        const vec3f dp12 = b - c;
-        dg.dPds = (dst12.y * dp02 - dst02.y * dp12) * invDet;
-        dg.dPdt = (dst02.x * dp12 - dst12.x * dp02) * invDet;
-        fallback = false;
-      }
-    }
-    if (fallback) {
-      linear3f f = frame(dg.Ng);
-      dg.dPds = f.vx;
-      dg.dPdt = f.vy;
-    }
-  }
-
-  if (flags & DG_MATERIALID) {
-    if (self->prim_materialID) {
-      dg.materialID = self->prim_materialID[ray.primID];
-    }
-    // TODO: gather material ID from index array if indexSize==4
-    else {
-      dg.materialID = self->geom_materialID;
-    }
-  }
-#endif
 }
 
 SampleAreaRes RayforceGraph_sampleArea(

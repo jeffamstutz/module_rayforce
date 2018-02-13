@@ -218,8 +218,6 @@ std::string RayforceGraph::toString() const
 
 void RayforceGraph::finalize(Model *model)
 {
-  Assert(model && "invalid model pointer");
-
   Geometry::finalize(model);
 
   RTCScene embreeSceneHandle = model->embreeSceneHandle;
@@ -234,6 +232,14 @@ void RayforceGraph::finalize(Model *model)
 
   std::string saveGraphFile = getParamString("saveGraphFile", "");
   std::string loadGraphFile = getParamString("loadGraphFile", "");
+
+
+  if (!vertexData)
+    throw std::runtime_error("rayforce graph must have 'vertex' array");
+  if (!indexData)
+    throw std::runtime_error("rayforce graph must have 'index' array");
+  if (colorData && colorData->type != OSP_FLOAT4 && colorData->type != OSP_FLOAT3A)
+    throw std::runtime_error("vertex.color must have data type OSP_FLOAT4 or OSP_FLOAT3A");
 
   this->index = (int*)indexData->data;
   this->vertex = (float*)vertexData->data;
@@ -325,6 +331,7 @@ void RayforceGraph::finalize(Model *model)
                        eMesh,
                        (RTCBoundsFunc)&rayforceBoundsFunc);
 
+
 #ifdef OSPRAY_USE_EMBREE_STREAMS
   rtcSetIntersectFunction1Mp(embreeSceneHandle,
                              eMesh,
@@ -380,8 +387,7 @@ void RayforceGraph::finalize(Model *model)
   for (size_t i = 0; i < numVerts*vtxSize; i += vtxSize)
     bounds.extend(*(vec3f*)(vertex + i));
 
-  ispc::RayforceGraph_set(getIE(),model->getIE(),
-                          eMesh,
+  ispc::RayforceGraph_set(getIE(),model->getIE(), eMesh,
                           numTris,
                           idxSize,
                           vtxSize,
@@ -393,7 +399,7 @@ void RayforceGraph::finalize(Model *model)
                           (ispc::vec2f*)texcoord,
                           geom_materialID,
                           materialList ? ispcMaterialPtrs.data() : nullptr,
-                          (uint32*)prim_materialID);
+                          (uint32_t*)prim_materialID);
 }
 
 OSP_REGISTER_GEOMETRY(RayforceGraph, rfgraph);
