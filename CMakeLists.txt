@@ -23,6 +23,7 @@ if (OSPRAY_MODULE_RAYFORCE)
   include_directories_ispc(${CMAKE_CURRENT_SOURCE_DIR})
 
   ospray_create_library(ospray_module_rayforce
+    moduleInit.cpp
     RayforceGraph.cpp
     RayforceGraph.h
     RayforceGraph.ispc
@@ -36,14 +37,5 @@ if (OSPRAY_MODULE_RAYFORCE)
 
   set_source_files_properties(rfPipeline.c
     PROPERTIES COMPILE_FLAGS "-msse4.1 -std=gnu99")
-
-  ospray_create_application(ospRayforceViewer
-    rayforceViewer.cpp
-    LINK
-    ospray_app
-    ospray_imgui3d_sg
-    ${OPENGL_LIBRARIES}
-    ${GLUT_LIBRARIES}
-  )
 
 endif()

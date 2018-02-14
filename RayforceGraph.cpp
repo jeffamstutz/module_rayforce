@@ -404,9 +404,4 @@ void RayforceGraph::finalize(Model *model)
 OSP_REGISTER_GEOMETRY(RayforceGraph, rfgraph);
 OSP_REGISTER_GEOMETRY(RayforceGraph, rayforce);
 
-extern "C" void ospray_init_module_rayforce()
-{
-  printf("Loaded plugin 'rayforce' ...\n");
-}
-
 } // ::ospray
